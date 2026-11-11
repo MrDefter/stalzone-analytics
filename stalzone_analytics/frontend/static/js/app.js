@@ -40,6 +40,10 @@ const snapshotTime = new Intl.DateTimeFormat("ru-RU", {
     dateStyle: "short",
     timeStyle: "short",
 });
+const lotsDataTime = new Intl.DateTimeFormat("ru-RU", {
+    day: "2-digit", month: "2-digit", year: "numeric",
+    hour: "2-digit", minute: "2-digit",
+});
 const HISTORY_POLL_INTERVAL_MS = 5000;
 const REFRESH_POLL_INTERVAL_MS = 2000;
 const REFRESH_TIMEOUT_MS = 15 * 60 * 1000;
@@ -54,6 +58,7 @@ const appState = {
     selectedLotId: null,
     selectedPipeline: "conservative_q25",
     analysis: { status: "idle" },
+    lotsApplied: null,
     historySync: null,
     retryAt: 0,
     historyPeriod: DEFAULT_HISTORY_PERIOD,
@@ -91,6 +96,14 @@ function applyAnalysis(state) {
     const previousItem = appState.analysis.data?.item_id;
     const previousSnapshot = appState.analysis.data?.snapshot_id;
     appState.analysis = state;
+    if (state.status === "ready" && state.data) {
+        const { item_id: itemId, version, snapshot_id: snapshotId } = state.data;
+        const applied = appState.lotsApplied;
+        if (!applied || applied.itemId !== itemId || applied.version !== version
+            || applied.snapshotId !== snapshotId) {
+            appState.lotsApplied = { itemId, version, snapshotId, at: Date.now() };
+        }
+    }
     appState.historySync = state.data?.history.sync ?? null;
     const retryAfter = state.retryAfter ?? Math.max(
         0, ...Object.values(state.data?.source_errors ?? {})
@@ -232,15 +245,27 @@ function updateLotsTime(dataset) {
     const date = dataset?.received_at;
     byId("lots-updated").hidden = !date;
     time.dateTime = date ?? "";
-    time.textContent = date ? snapshotTime.format(new Date(date)) : "";
+    time.textContent = date ? lotsDataTime.format(new Date(date)) : "";
+    updateLotsAge();
     const quality = byId("lots-quality");
     const labels = [
         dataset?.snapshot_stale && "Устарел",
         dataset?.coverage?.lots_complete === false && "Неполный снимок",
     ].filter(Boolean);
     quality.textContent = labels.join(" · ");
-    quality.hidden = !labels.length;
+    quality.hidden = !date || !labels.length;
     quality.title = labels.length ? "Показаны доступные лоты из сохранённого снимка EXBO." : "";
+}
+
+function updateLotsAge() {
+    if (!appState.lotsApplied || byId("lots-updated").hidden) return;
+    const elapsed = Math.max(0, Math.floor((Date.now() - appState.lotsApplied.at) / 1000));
+    const minutes = Math.floor(elapsed / 60);
+    const seconds = elapsed % 60;
+    const text = elapsed === 0 ? "только что"
+        : `${minutes ? `${minutes} мин ` : ""}${seconds} сек назад`;
+    const age = byId("lots-age");
+    if (age.textContent !== text) age.textContent = text;
 }
 
 function updateStatistics() {
@@ -368,6 +393,7 @@ function selectItem(id) {
         if (toastOwner) hideToast();
         appState.selectedItemId = id;
         appState.selectedLotId = null;
+        appState.lotsApplied = null;
         for (const button of byId("item-list").querySelectorAll("[data-item-id]")) {
             button.setAttribute("aria-pressed", String(button.dataset.itemId === id));
         }
@@ -794,4 +820,6 @@ document.querySelector(`[data-pipeline="${appState.selectedPipeline}"]`)
     .setAttribute("aria-current", "true");
 updateStatistics();
 updateHistory();
+window.setInterval(updateLotsAge, 1000);
+document.addEventListener("visibilitychange", updateLotsAge);
 loadItems();

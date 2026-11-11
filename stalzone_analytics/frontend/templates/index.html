@@ -116,16 +116,18 @@
 
                     <section class="panel lots-panel" aria-labelledby="lots-title">
                         <div class="panel-heading lots-heading">
-                            <div class="section-heading">
-                                {{ icon("target") }}
-                                <div>
+                            <div class="lots-heading-main">
+                                <div class="section-heading">
+                                    {{ icon("target") }}
                                     <h2 id="lots-title">Активные лоты</h2>
                                 </div>
-                            </div>
-                            <div class="lots-updated" id="lots-updated" hidden>
-                                {{ icon("clock") }}
-                                <span>Последнее обновление</span>
-                                <time id="lots-time"></time>
+                                <div class="lots-updated" id="lots-updated" hidden>
+                                    <span class="lots-data-time">
+                                        {{ icon("clock") }}
+                                        <span>Данные: <time id="lots-time"></time></span>
+                                    </span>
+                                    <span class="lots-age-badge">Интерфейс: <span id="lots-age"></span></span>
+                                </div>
                                 <span id="lots-quality" class="quality-label" tabindex="0" hidden></span>
                             </div>
                             <div class="table-actions">

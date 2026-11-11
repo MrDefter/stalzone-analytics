@@ -376,17 +376,50 @@
     flex-wrap: wrap;
 }
 
-.lots-updated {
+.lots-heading-main {
     display: flex;
-    flex: 1 1 auto;
+    flex: 1 1 min(100%, 32rem);
     align-items: center;
     flex-wrap: wrap;
-    gap: 6px;
-    color: var(--muted-strong);
-    font-size: 0.84rem;
+    gap: 7px 14px;
+    min-width: 0;
 }
 
-.lots-updated time {
+.lots-heading-main .section-heading {
+    align-items: center;
+    gap: 12px;
+}
+
+.lots-heading-main h2 {
+    font-size: clamp(17px, 1.15vw, 21px);
+}
+
+.lots-heading .table-actions {
+    flex: none;
+    margin-inline-start: auto;
+}
+
+.lots-updated {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 5px 9px;
+    min-width: 0;
+    color: var(--muted-strong);
+    font-size: 14px;
+    line-height: 1.4;
+    font-variant-numeric: tabular-nums;
+}
+
+.lots-data-time {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    white-space: nowrap;
+}
+
+.lots-updated time,
+#lots-age {
     color: var(--text);
     font-weight: 650;
 }
@@ -394,6 +427,14 @@
 .lots-updated .icon {
     width: 16px;
     height: 16px;
+}
+
+.lots-age-badge {
+    padding: 2px 8px;
+    border: 1px solid var(--accent-line);
+    border-radius: 12px;
+    background: var(--accent-soft);
+    white-space: nowrap;
 }
 
 .quality-label {
@@ -490,8 +531,8 @@
 }
 
 .lots-heading .section-heading > .icon {
-    width: clamp(29px, 2.25vw, 43px);
-    height: clamp(29px, 2.25vw, 43px);
+    width: clamp(27px, 1.9vw, 34px);
+    height: clamp(27px, 1.9vw, 34px);
 }
 
 .table-actions,
@@ -1316,11 +1357,6 @@ body[data-motion="reduced"] .refresh-spinner { animation: none; }
 }
 
 @media (max-width: 1200px) {
-    .lots-heading {
-        flex-wrap: wrap;
-        align-items: flex-start;
-    }
-
     .filter-panel {
         right: auto;
         left: 0;
@@ -1370,6 +1406,10 @@ body[data-motion="reduced"] .refresh-spinner { animation: none; }
 }
 
 @media (max-width: 650px) {
+    .lots-heading .table-actions {
+        margin-inline-start: 0;
+    }
+
     .brand {
         gap: 7px;
         font-size: clamp(14px, 3vw, 19px);
