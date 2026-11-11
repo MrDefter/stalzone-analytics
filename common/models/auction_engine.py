@@ -23,6 +23,8 @@ class ScannerCommand(MonitoringUpdate):
     operation: Literal["scan", "evaluate", "settings"]
     created_at: datetime
     expected_snapshot_id: str | None = None
+    result_snapshot_id: str | None = None
+    result_received_at: datetime | None = None
     strategy: StrategySettings = Field(default_factory=StrategySettings)
 
 

@@ -210,12 +210,21 @@ export function loadStrategy(storage) {
     return DEFAULT_STRATEGY;
 }
 
-export async function refreshAuction(itemId) {
-    const params = new URLSearchParams({ item_id: itemId, region: "RU", mode: AUCTION_MODE });
-    const response = await fetch(`/api/auction/refresh?${params}`, {
-        method: "POST", cache: "no-store", signal: AbortSignal.timeout(5000),
+export function auctionKey(itemId) {
+    return { item_id: itemId, region: "RU", mode: AUCTION_MODE };
+}
+
+export async function readRefresh(key, requestId = null) {
+    const route = requestId ? `commands/${encodeURIComponent(requestId)}` : "refresh";
+    const response = await fetch(`/api/auction/${route}?${new URLSearchParams(key)}`, {
+        method: requestId ? "GET" : "POST", cache: "no-store",
+        signal: AbortSignal.timeout(5000),
     });
-    return response.ok;
+    if (requestId && response.status === 404) {
+        return { status: "error", error: "CommandExpired" };
+    }
+    if (!response.ok) throw new Error("Refresh request failed");
+    return response.json();
 }
 
 export async function checkAnalysisVersion(itemId, strategy) {
@@ -231,7 +240,7 @@ export async function checkAnalysisVersion(itemId, strategy) {
 
 export function createAnalysisLoader(update, fetcher = fetch) {
     let current = null;
-    return async (itemId, period = DEFAULT_HISTORY_PERIOD, strategy = DEFAULT_STRATEGY, previousData = null) => {
+    const load = async (itemId, period = DEFAULT_HISTORY_PERIOD, strategy = DEFAULT_STRATEGY, previousData = null) => {
         current?.abort();
         if (itemId === null) {
             current = null;
@@ -240,50 +249,53 @@ export function createAnalysisLoader(update, fetcher = fetch) {
         }
         const controller = new AbortController();
         current = controller;
-        const days = period;
-        if (!previousData) update({ status: "loading", days });
-        const params = new URLSearchParams({
-            item_id: itemId, region: "RU", mode: AUCTION_MODE, days: String(days),
-            min_sales: String(strategy.min_sales), min_roi_bps: String(strategy.min_roi_bps),
-        });
-
-        let result;
-        try {
-            const response = await fetcher(`/api/auction/analysis?${params}`, {
-                cache: "no-store",
-                signal: controller.signal,
-            });
-            const data = await response.json().catch(() => null);
-            if (response.status === 202 && data?.status === "pending") {
-                result = { status: "pending", message: data.message, retryable: true, data: previousData };
-            } else if (response.ok && data?.item_id === itemId && data.mode === AUCTION_MODE
-                && Array.isArray(data.lots) && Array.isArray(data.history?.sales)) {
-                result = { status: "ready", data };
-            } else {
-                const detail = data?.detail;
-                const seconds = detail?.retry_after_seconds;
-                const fallback = response.status === 422
-                    ? "Сервер отклонил параметры анализа. Проверьте настройки модели."
-                    : "Сервер не предоставил данные аукциона.";
-                result = {
-                    status: "error",
-                    message: typeof detail?.message === "string"
-                        ? detail.message : fallback,
-                    retryable: detail?.retryable ?? (response.ok || response.status >= 500),
-                    retryAfter: Number.isSafeInteger(seconds) && seconds > 0 ? seconds : 0,
-                };
-            }
-        } catch {
-            result = {
-                status: "error",
-                message: "Не удалось связаться с сервером STALZONE Analytics.",
-                retryable: true,
-                retryAfter: 0,
-            };
-        }
+        if (!previousData) update({ status: "loading", days: period });
+        const result = await fetchAnalysis(itemId, period, strategy, controller.signal, fetcher);
         if (current === controller) {
             current = null;
+            if (previousData && !result.data) result.data = previousData;
             update(result);
         }
     };
+    load.cancel = () => {
+        current?.abort();
+        current = null;
+    };
+    return load;
+}
+
+export async function fetchAnalysis(itemId, days, strategy, signal, fetcher = fetch) {
+    const params = new URLSearchParams({
+        ...auctionKey(itemId), days: String(days),
+        min_sales: String(strategy.min_sales), min_roi_bps: String(strategy.min_roi_bps),
+    });
+    try {
+        const response = await fetcher(`/api/auction/analysis?${params}`, { cache: "no-store", signal });
+        const data = await response.json().catch(() => null);
+        if (response.status === 202 && data?.status === "pending") {
+            return { status: "pending", message: data.message, retryable: true };
+        }
+        if (response.ok && data?.item_id === itemId && data.mode === AUCTION_MODE
+            && Array.isArray(data.lots) && Array.isArray(data.history?.sales)) {
+            return { status: "ready", data };
+        }
+        const detail = data?.detail;
+        const seconds = detail?.retry_after_seconds;
+        return {
+            status: "error",
+            message: typeof detail?.message === "string" ? detail.message : (
+                response.status === 422 ? "Сервер отклонил параметры анализа. Проверьте настройки модели."
+                    : "Сервер не предоставил данные аукциона."
+            ),
+            retryable: detail?.retryable ?? (response.ok || response.status >= 500),
+            retryAfter: Number.isSafeInteger(seconds) && seconds > 0 ? seconds : 0,
+        };
+    } catch {
+        return {
+            status: "error",
+            message: "Не удалось связаться с сервером STALZONE Analytics.",
+            retryable: true,
+            retryAfter: 0,
+        };
+    }
 }

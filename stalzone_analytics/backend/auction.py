@@ -190,7 +190,8 @@ async def read_version(
         if version is None:
             await _queue_profile(db, selection, query)
         return AuctionVersionResponse(
-            version=version, snapshot_age_seconds=selection.age,
+            version=version, snapshot_id=selection.meta.snapshot_id,
+            snapshot_age_seconds=selection.age,
             snapshot_stale=selection.stale,
             history=history_summary(selection.point, storage.settings),
         )

@@ -6,6 +6,16 @@
 </svg>
 {%- endmacro %}
 
+{% macro refresh_overlay(label, description) -%}
+<div class="refresh-overlay" aria-hidden="true">
+    <div class="refresh-overlay-card">
+        <span class="refresh-spinner"></span>
+        <strong>{{ label }}</strong>
+        <small>{{ description }}</small>
+    </div>
+</div>
+{%- endmacro %}
+
 {% block body %}
 {% set history_periods = ((1, "24 часа"), (7, "7 дней"), (14, "14 дней"), (30, "30 дней")) %}
 <a class="skip-link" href="#workspace-main">К содержимому</a>
@@ -92,18 +102,16 @@
         </nav>
 
         <div class="dashboard-content">
-            <div class="notice analysis-notice" id="analysis-notice" hidden>
-                {{ icon("info") }}
-                <div class="analysis-notice-text" role="status" aria-live="polite">
-                    <p id="analysis-message"></p>
-                    <ul id="analysis-reasons" hidden></ul>
-                </div>
-                <button class="button" id="analysis-refresh" type="button"
-                        data-action="refresh-analysis" hidden>Обновить</button>
-            </div>
             <section class="statistics-layout" id="statistics" role="tabpanel"
                      aria-labelledby="tab-statistics">
                 <div class="overview">
+                    <div class="refresh-toolbar">
+                        <p class="refresh-caption" id="analysis-caption" role="status"></p>
+                        <button class="button outline-accent" id="analysis-refresh"
+                                type="button" data-action="refresh-analysis" disabled>
+                            {{ icon("switch") }}<span>Обновить</span>
+                        </button>
+                    </div>
                     <div class="metrics" id="metrics" aria-label="Показатели"></div>
 
                     <section class="panel lots-panel" aria-labelledby="lots-title">
@@ -112,8 +120,13 @@
                                 {{ icon("target") }}
                                 <div>
                                     <h2 id="lots-title">Активные лоты</h2>
-                                    <p id="lots-subtitle"></p>
                                 </div>
+                            </div>
+                            <div class="lots-updated" id="lots-updated" hidden>
+                                {{ icon("clock") }}
+                                <span>Последнее обновление</span>
+                                <time id="lots-time"></time>
+                                <span id="lots-quality" class="quality-label" tabindex="0" hidden></span>
                             </div>
                             <div class="table-actions">
                                 <div class="popover-anchor">
@@ -165,6 +178,8 @@
                                 </button>
                             </div>
                         </div>
+                        <div class="refresh-region" data-refresh-region>
+                        <div data-refresh-content>
                         <div class="table-scroll" role="region" tabindex="0"
                              aria-labelledby="lots-title" id="table-scroll">
                             <table class="lots-table">
@@ -193,6 +208,9 @@
                             </table>
                         </div>
                         <div class="empty table-empty" id="table-empty" hidden></div>
+                        </div>
+                        {{ refresh_overlay("Обновление активных лотов…", "Загружаем данные аукциона EXBO") }}
+                        </div>
                     </section>
 
                     <div class="chart-grid">
@@ -203,7 +221,6 @@
                                     <div>
                                         <h2 id="price-title">История цены</h2>
                                         <p id="price-caption"></p>
-                                        <p id="price-warning" hidden></p>
                                     </div>
                                 </div>
                                 <select class="period-select" id="statistics-period"
@@ -213,7 +230,10 @@
                                     {% endfor %}
                                 </select>
                             </div>
-                            <div class="chart-plot" id="price-chart"></div>
+                            <div class="refresh-region" data-refresh-region>
+                                <div class="chart-plot" id="price-chart" data-refresh-content></div>
+                                {{ refresh_overlay("Обновление истории…", "Ожидаем опубликованные данные") }}
+                            </div>
                         </section>
                         <section class="panel chart-card" aria-labelledby="sales-title">
                             <div class="section-heading">
@@ -223,7 +243,10 @@
                                     <p id="sales-caption"></p>
                                 </div>
                             </div>
-                            <div class="chart-plot" id="sales-chart"></div>
+                            <div class="refresh-region" data-refresh-region>
+                                <div class="chart-plot" id="sales-chart" data-refresh-content></div>
+                                {{ refresh_overlay("Пересчёт ликвидности…", "Ожидаем обновлённые показатели") }}
+                            </div>
                         </section>
                     </div>
                 </div>
@@ -325,9 +348,12 @@
 
 {% include "dialogs.html" %}
 
-<div id="toast" class="toast" role="status" aria-live="polite" hidden>
-    {{ icon("info") }}
-    <span id="toast-message"></span>
+<div id="toast" class="toast" hidden>
+    <span class="toast-icon" id="toast-icon" aria-hidden="true"></span>
+    <div class="toast-text" role="status" aria-live="polite" aria-atomic="true">
+        <strong id="toast-title"></strong>
+        <span id="toast-message"></span>
+    </div>
     <button class="button icon-button" type="button" data-action="dismiss-toast"
             aria-label="Закрыть уведомление">{{ icon("x") }}</button>
 </div>

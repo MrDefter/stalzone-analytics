@@ -1,4 +1,4 @@
-import { hasUnconfirmedHistory, isEstimatedAnalysis, reasonLabel, statusLabel } from "./auction-data.js";
+import { isEstimatedAnalysis, reasonLabel, statusLabel } from "./auction-data.js";
 
 const integerFormat = new Intl.NumberFormat("ru-RU");
 const decimalFormat = new Intl.NumberFormat("ru-RU", {
@@ -131,7 +131,6 @@ function formatPriceWindow(hours) {
 }
 
 const PRELIMINARY_Q25_LABEL = "Предварительная оценка";
-const ESTIMATED_HISTORY_NOTICE = "История может содержать пропущенные или повторяющиеся сделки.";
 
 function q25Display(dataset) {
     const preliminary = dataset?.q25_quality === "preliminary";
@@ -152,12 +151,6 @@ function turnoverLabel(dataset) {
 export function renderMetrics(container, dataset) {
     const q25 = q25Display(dataset);
     const estimated = isEstimatedAnalysis(dataset);
-    const coverageNotice = [
-        dataset?.coverage?.lots_complete === false && "Загружен неполный снимок активных лотов.",
-        hasUnconfirmedHistory(dataset) && ESTIMATED_HISTORY_NOTICE,
-        dataset?.history?.sync?.stale && "Используется сохранённая история до последней успешной синхронизации.",
-        "Результаты аналитики являются оценочными",
-    ].filter(Boolean).join(" ");
     const lots = dataset?.source_errors?.lots ? null : dataset?.lots;
     const candidateCount = (q25.preliminary || dataset?.q25_quality === "verified")
         && dataset.reasons.every((reason) => reason === "sharp_price_drop")
@@ -215,9 +208,7 @@ export function renderMetrics(container, dataset) {
                 ${card.help}
             </span>
         </div>
-    `).join("") + (estimated
-        ? `<p class="notice q25-notice">${icon("info")}<span>${coverageNotice}</span></p>`
-        : "");
+    `).join("");
 }
 
 export function renderLotRows(container, item, lots, selectedId, estimated = false) {

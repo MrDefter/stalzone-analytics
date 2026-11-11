@@ -172,7 +172,7 @@ test("KPI и таблица отмечают оценочный результа
     assert.match(panel.innerHTML, /Оценочно выгодных<\/dt>\s*<dd>1<\/dd>/);
     assert.match(panel.innerHTML, /Продаж партий в Q25/);
     assert.match(panel.innerHTML, /Наблюдаемые продажи партий за 24 часа<\/dt>\s*<dd>42<\/dd>/);
-    assert.match(panel.innerHTML, /Результаты аналитики являются оценочными/);
+    assert.doesNotMatch(panel.innerHTML, /q25-notice/);
 
     const rows = { innerHTML: "", querySelectorAll: () => [] };
     renderLotRows(rows, null, [candidate], 1, isEstimatedAnalysis(dataset));

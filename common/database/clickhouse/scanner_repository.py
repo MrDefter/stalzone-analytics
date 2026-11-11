@@ -253,12 +253,18 @@ class ScannerRepository:
             Результат или None, если команда отсутствует.
         """
         rows = await self._select(f"""
-            SELECT status, error_type FROM @db@.scanner_commands FINAL
+            SELECT status, error_type, payload FROM @db@.scanner_commands FINAL
             WHERE {_KEY} AND request_id = {{request:String}}
                 AND expires_at > now()
         """, key, request=request_id)
         if rows:
-            return {"status": rows[0][0], "error": rows[0][1] or None}
+            status, error, payload = rows[0]
+            result = {"status": status, "error": error or None}
+            command = json.loads(payload)
+            if command.get("result_snapshot_id"):
+                result["snapshot_id"] = command["result_snapshot_id"]
+                result["received_at"] = command["result_received_at"]
+            return result
         return None
 
     async def record_command(

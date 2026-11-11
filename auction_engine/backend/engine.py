@@ -329,6 +329,7 @@ class AuctionEngine:
             policy: Текущие параметры мониторинга.
         """
         meta = await db.latest(key)
+        refresh_error = None
         try:
             if isinstance(operation, HistoryOperation):
                 await self._sync(history, key, operation)
@@ -358,7 +359,9 @@ class AuctionEngine:
                     )
                 )
             ):
-                await self._scan(history, db, key, item, command, policy)
+                meta, refresh_error = await self._scan(
+                    history, db, key, item, command, policy,
+                )
                 if command is not None and command.operation == "evaluate":
                     published = await db.latest(key)
                     if published is not None:
@@ -367,7 +370,19 @@ class AuctionEngine:
                             await db.lots(key, published), command.strategy,
                         )
             if command is not None:
-                await db.record_command(key, command, "done")
+                if command.operation == "scan" and meta is not None:
+                    command = command.model_copy(update={
+                        "result_snapshot_id": meta.snapshot_id,
+                        "result_received_at": meta.received_at,
+                    })
+                    if not meta.lots_consistent:
+                        refresh_error = "SnapshotInconsistent"
+                if refresh_error and command.operation == "scan":
+                    await db.record_command(
+                        key, command, "error", refresh_error,
+                    )
+                else:
+                    await db.record_command(key, command, "done")
         except EngineCapacityError as error:
             if command is not None:
                 await db.record_command(key, command, "error",
@@ -410,7 +425,7 @@ class AuctionEngine:
         self, history: HistoryWriter, db: SnapshotWriter,
         key: HistoryKey, item: CatalogItem, command: ScannerCommand | None,
         policy: ScannerSettings,
-    ) -> None:
+    ) -> tuple[SnapshotMetadata, str | None]:
         """Собрать лоты и опубликовать версию после подтверждения записи.
 
         Args:
@@ -420,6 +435,9 @@ class AuctionEngine:
             item: Настройки каталога.
             command: Команда, вызвавшая сканирование.
             policy: Действующий интервал мониторинга.
+
+        Returns:
+            Опубликованный снимок и код ошибки сопутствующей истории.
         """
         started = datetime.now(UTC)
         snapshot_id = uuid4().hex
@@ -460,20 +478,26 @@ class AuctionEngine:
             due = _history_due(point, datetime.now(UTC),
                                self.settings.sync_interval_seconds)
             if due in (HistoryOperation.INITIAL, HistoryOperation.INCREMENTAL):
-                await self._sync(history, key, due)
+                updated = await self._sync(history, key, due)
                 await evaluate(history, db, self.settings, key, item,
                                meta, scan, StrategySettings())
+                if updated.status is HistorySyncStatus.ERROR:
+                    return meta, "HistoryRefreshFailed"
+        return meta, None
 
     async def _sync(
         self, history: HistoryWriter, key: HistoryKey,
         operation: HistoryOperation,
-    ) -> None:
+    ) -> HistoryCheckpoint:
         """Продвинуть контрольную точку через существующий сборщик.
 
         Args:
             history: Хранилище продаж.
             key: Предмет, регион и режим.
             operation: Начальная, свежая или историческая загрузка.
+
+        Returns:
+            Сохранённая контрольная точка с результатом синхронизации.
         """
         point = await history.get_checkpoint(key)
 
@@ -503,3 +527,4 @@ class AuctionEngine:
         )
         if updated.status is HistorySyncStatus.ERROR:
             self._error = updated.last_error_type
+        return updated

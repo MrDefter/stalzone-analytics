@@ -4,19 +4,19 @@ import {
     DEFAULT_HISTORY_PERIOD,
     DEFAULT_STRATEGY,
     STRATEGY_STORAGE_KEY,
+    auctionKey,
     checkAnalysisVersion,
     createAnalysisLoader,
+    fetchAnalysis,
     filterLots,
     historySeries,
     isEstimatedAnalysis,
-    refreshAuction,
+    readRefresh,
     loadStrategy,
-    reasonLabel,
     statusLabel,
 } from "./auction-data.js";
 import {
     emptyContent,
-    formatInteger,
     highlightLot,
     icon,
     packLabel,
@@ -41,6 +41,11 @@ const snapshotTime = new Intl.DateTimeFormat("ru-RU", {
     timeStyle: "short",
 });
 const HISTORY_POLL_INTERVAL_MS = 5000;
+const REFRESH_POLL_INTERVAL_MS = 2000;
+const REFRESH_TIMEOUT_MS = 15 * 60 * 1000;
+const refreshes = new Map();
+const failedSnapshots = new Map();
+const refreshRegions = document.querySelectorAll("[data-refresh-region]");
 const appState = {
     items: [],
     catalogStatus: "loading",
@@ -69,7 +74,7 @@ const charts = [
 
 let popoverTrigger = null;
 let toastTimer;
-let retryTimer;
+let toastOwner = null;
 let historyPollTimer;
 
 function itemAndPack() {
@@ -79,7 +84,9 @@ function itemAndPack() {
     return { item, quantity, dataset };
 }
 
-const loadAnalysis = createAnalysisLoader((state) => {
+const loadAnalysis = createAnalysisLoader(applyAnalysis);
+
+function applyAnalysis(state) {
     window.clearTimeout(historyPollTimer);
     const previousItem = appState.analysis.data?.item_id;
     const previousSnapshot = appState.analysis.data?.snapshot_id;
@@ -96,13 +103,19 @@ const loadAnalysis = createAnalysisLoader((state) => {
     }
     updateStatistics();
     updateHistory();
-    updateAnalysisNotice();
+    updateRefreshControls();
     if (["ready", "pending"].includes(state.status) || state.retryable) {
         pollAnalysis(state);
     }
-});
+}
 
 function requestAnalysis(keepData = false) {
+    const refresh = refreshes.get(refreshKey());
+    if (refresh?.data) {
+        loadAnalysis.cancel();
+        applyAnalysis({ status: "ready", data: refresh.data });
+        return;
+    }
     loadAnalysis(appState.selectedItemId, appState.historyPeriod, appState.strategy,
         keepData ? appState.analysis.data : null);
 }
@@ -112,7 +125,7 @@ function pollAnalysis(state) {
         if (appState.analysis !== state) {
             return;
         }
-        if (!document.hidden && Date.now() >= appState.retryAt) {
+        if (!document.hidden && Date.now() >= appState.retryAt && !refreshes.has(refreshKey())) {
             let check;
             try {
                 check = await checkAnalysisVersion(appState.selectedItemId, appState.strategy);
@@ -122,96 +135,51 @@ function pollAnalysis(state) {
             if (appState.analysis !== state) {
                 return;
             }
-            if (check?.version && check.version !== state.data?.version) {
-                requestAnalysis(true);
-                return;
-            }
-            if (check?.version && state.data) {
-                const staleChanged = state.data.snapshot_stale !== check.snapshot_stale
-                    || appState.historySync?.stale !== check.history?.stale;
-                state.data.snapshot_age_seconds = check.snapshot_age_seconds;
-                state.data.snapshot_stale = check.snapshot_stale;
-                state.data.history.sync = check.history;
-                appState.historySync = check.history;
-                if (staleChanged) {
-                    updateStatistics();
-                    updateHistory();
+            if (!refreshes.has(refreshKey()) && check) {
+                const failedSnapshot = failedSnapshots.get(refreshKey());
+                if (check.version && check.version !== state.data?.version
+                    && (!failedSnapshot || check.snapshot_id !== failedSnapshot)) {
+                    failedSnapshots.delete(refreshKey());
+                    requestAnalysis(true);
+                    return;
                 }
-                updateAnalysisNotice();
-            } else if (check?.history && !state.data) {
-                appState.historySync = check.history;
-                updateAnalysisNotice();
+                if (state.data && check.version && check.version === state.data.version) {
+                    state.data.snapshot_stale = check.snapshot_stale;
+                    state.data.history.sync = check.history;
+                    updateLotsTime(state.data);
+                }
+                if (!state.data || check.version === state.data.version) {
+                    appState.historySync = check.history;
+                    updateHistoryCaption(state.data);
+                }
+                updateRefreshControls();
             }
         }
         pollAnalysis(state);
     }, HISTORY_POLL_INTERVAL_MS);
 }
 
-function historyMessages(sync) {
-    if (!sync) {
-        return [];
-    }
-    const busy = ["pending", "running"].includes(sync.status);
-    const operations = {
-        initial: "Первичная загрузка истории",
-        incremental: "Обновление свежих продаж",
-        backfill: "Догрузка более старой истории",
-    };
-    return [
-        busy && operations[sync.operation],
-        sync.last_success_at && `Последнее обновление ${snapshotTime.format(new Date(sync.last_success_at))}`,
-        sync.covered_from && sync.covered_until && `Покрытие с ${snapshotTime.format(new Date(sync.covered_from))} по ${snapshotTime.format(new Date(sync.covered_until))}`,
-        sync.stale && "Используется сохранённая история. Свежие продажи могут отсутствовать.",
-        sync.error,
-    ].filter(Boolean);
+function refreshKey(itemId = appState.selectedItemId) {
+    const { item_id, region, mode } = auctionKey(itemId);
+    return `stalzone.refresh:${region}:${mode}:${item_id}`;
 }
 
-function updateAnalysisNotice() {
-    window.clearTimeout(retryTimer);
-    const { status, data, message, retryable } = appState.analysis;
-    const notice = byId("analysis-notice");
-    notice.hidden = status === "idle" || !["statistics", "history"].includes(appState.selectedModel);
-    if (notice.hidden) {
-        return;
-    }
+function updateRefreshControls() {
+    const busy = refreshes.has(refreshKey());
     const retry = byId("analysis-refresh");
-    const wait = Math.max(0, appState.retryAt - Date.now());
-    const issues = byId("analysis-reasons");
-    const sourceErrors = Object.values(data?.source_errors ?? {});
-    const warnings = [
-        ...sourceErrors.map((error) => error.message),
-        ...(data?.reasons ?? []).map(reasonLabel),
-    ];
-    const sync = appState.historySync;
-    const messages = [...warnings, ...historyMessages(sync)];
-    if (data?.snapshot_stale) {
-        const age = formatInteger(data.snapshot_age_seconds);
-        messages.push(`Снимок лотов устарел. Возраст ${age} с.`);
+    retry.disabled = busy || !appState.selectedItemId;
+    retry.querySelector("span").textContent = busy ? "Обновляем…" : "Обновить";
+    byId("filter-button").disabled = busy;
+    document.querySelector('[data-action="export"]').disabled = busy;
+    periodSelect.disabled = busy;
+    for (const region of refreshRegions) {
+        region.setAttribute("aria-busy", String(busy));
+        region.querySelector("[data-refresh-content]").inert = busy;
     }
-    issues.replaceChildren(...messages.map((warning) => {
-        const item = document.createElement("li");
-        item.textContent = warning;
-        return item;
-    }));
-    issues.hidden = messages.length === 0;
-    notice.dataset.state = sourceErrors.length || sync?.error ? "partial" : status;
-    retry.hidden = status !== "ready" && !retryable;
-    retry.disabled = wait > 0;
-    retry.textContent = status === "ready" ? "Обновить" : "Повторить";
-    const waiting = sync && !sync.last_success_at && ["pending", "running"].includes(sync.status);
-    const readyHeading = waiting ? "История загружается"
-        : warnings.length ? "Анализ ограничен" : "Снимок аукциона получен";
-    const headings = {
-        loading: "Читаем опубликованный снимок…",
-        pending: message,
-        ready: sourceErrors.length ? "Данные загружены частично" : readyHeading,
-        error: message,
-    };
-    const retryHint = wait ? ` · Повтор доступен через ${Math.ceil(wait / 1000)} с.` : "";
-    byId("analysis-message").textContent = headings[status] + retryHint;
-    if (wait > 0) {
-        retryTimer = window.setTimeout(updateAnalysisNotice, Math.min(wait, 1000));
-    }
+    const { status, data, message } = appState.analysis;
+    byId("analysis-caption").textContent = !data && !busy && ["error", "pending"].includes(status)
+        ? (appState.historySync?.error ? "История пока недоступна. Ожидаем повторную загрузку." : message)
+        : "";
 }
 
 function matchingItems() {
@@ -255,7 +223,24 @@ async function loadItems() {
         appState.catalogStatus = "error";
     }
     updateItems();
+    resumeRefresh();
     requestAnalysis();
+}
+
+function updateLotsTime(dataset) {
+    const time = byId("lots-time");
+    const date = dataset?.received_at;
+    byId("lots-updated").hidden = !date;
+    time.dateTime = date ?? "";
+    time.textContent = date ? snapshotTime.format(new Date(date)) : "";
+    const quality = byId("lots-quality");
+    const labels = [
+        dataset?.snapshot_stale && "Устарел",
+        dataset?.coverage?.lots_complete === false && "Неполный снимок",
+    ].filter(Boolean);
+    quality.textContent = labels.join(" · ");
+    quality.hidden = !labels.length;
+    quality.title = labels.length ? "Показаны доступные лоты из сохранённого снимка EXBO." : "";
 }
 
 function updateStatistics() {
@@ -266,12 +251,7 @@ function updateStatistics() {
     appState.selectedLotId = selected?.id ?? null;
 
     byId("lots-title").textContent = item ? `Активные лоты: ${item.name_ru}` : "Активные лоты";
-    byId("lots-subtitle").textContent = dataset
-        ? [
-            `Снимок ${snapshotTime.format(new Date(dataset.evaluated_at))}`,
-            `Минимум продаж для Q25 ${formatInteger(dataset.model.min_sales)}`,
-        ].join(" · ")
-        : item ? "Результаты по выбранному предмету" : "Выберите предмет из каталога";
+    updateLotsTime(dataset);
     renderMetrics(byId("metrics"), dataset);
     renderLotRows(byId("lots-body"), item, lots, appState.selectedLotId, estimated);
     byId("filters-panel").querySelector('option[value="candidate"]').textContent = statusLabel("candidate", estimated);
@@ -305,6 +285,29 @@ function updateStatistics() {
     byId("filter-button").querySelector(".filter-dot").hidden = !activeFilters;
 }
 
+function updateHistoryCaption(dataset) {
+    const caption = byId("price-caption");
+    const { covered_from: from, covered_until: until } = dataset?.history ?? {};
+    const sync = appState.historySync;
+    const consistent = dataset?.coverage?.history_prefix_consistent === true;
+    caption.title = [
+        dataset && !consistent && "Согласованность истории не подтверждена. Возможны пропущенные или повторяющиеся сделки",
+        sync?.error ?? dataset?.source_errors?.history?.message,
+        sync?.stale && "Показана история до последней успешной синхронизации",
+    ].filter(Boolean).join(". ");
+    caption.tabIndex = caption.title ? 0 : -1;
+    if (from && until) {
+        const end = new Date(until);
+        const requested = end.getTime() - appState.historyPeriod * 86_400_000;
+        const start = new Date(Math.max(Date.parse(from), requested));
+        const partial = consistent && Date.parse(from) <= requested ? "" : " · Частичное покрытие";
+        caption.textContent = `Период истории: ${snapshotTime.format(start)} — ${snapshotTime.format(end)}${partial}`;
+    } else {
+        const loading = !sync?.last_success_at && ["pending", "running"].includes(sync?.status);
+        caption.textContent = loading ? "Загрузка истории продаж…" : "История пока недоступна";
+    }
+}
+
 function updateHistory() {
     const { item, quantity, dataset } = itemAndPack();
     const period = appState.historyPeriod;
@@ -318,14 +321,12 @@ function updateHistory() {
     byId("history-caption").textContent = dataset
         ? `Снимок ${snapshotTime.format(new Date(dataset.history.covered_until ?? dataset.evaluated_at))}${coverage}`
         : "История продаж EXBO";
-    byId("price-caption").textContent = priceCaption;
+    updateHistoryCaption(dataset);
     byId("history-price-caption").textContent = priceCaption;
     const priceWarning = history?.priceWarning ?? "";
-    for (const id of ["price-warning", "history-price-warning"]) {
-        const warning = byId(id);
-        warning.textContent = priceWarning;
-        warning.hidden = !priceWarning;
-    }
+    const warning = byId("history-price-warning");
+    warning.textContent = priceWarning;
+    warning.hidden = !priceWarning;
     byId("sales-caption").textContent = salesCaption;
     byId("history-sales-caption").textContent = salesCaption;
     periodSelect.value = String(period);
@@ -364,11 +365,13 @@ function selectLot(id) {
 
 function selectItem(id) {
     if (appState.selectedItemId !== id) {
+        if (toastOwner) hideToast();
         appState.selectedItemId = id;
         appState.selectedLotId = null;
         for (const button of byId("item-list").querySelectorAll("[data-item-id]")) {
             button.setAttribute("aria-pressed", String(button.dataset.itemId === id));
         }
+        resumeRefresh();
         requestAnalysis();
     }
     setSidebar(false, byId("item-sidebar").contains(document.activeElement));
@@ -382,7 +385,7 @@ function selectModel(model) {
         button.tabIndex = active ? 0 : -1;
         byId(button.dataset.tab).hidden = !active;
     }
-    updateAnalysisNotice();
+    updateRefreshControls();
 }
 
 function setSidebar(open, focus = false) {
@@ -477,11 +480,153 @@ function saveFilters(filters) {
     closePopover(true);
 }
 
-function toast(message) {
+function hideToast() {
     window.clearTimeout(toastTimer);
+    byId("toast").hidden = true;
+    toastOwner = null;
+}
+
+function toast(message, { kind = "info", title = "", owner = null } = {}) {
+    if (!owner && toastOwner && refreshes.has(toastOwner)) return;
+    window.clearTimeout(toastTimer);
+    toastOwner = owner;
+    const notification = byId("toast");
+    notification.dataset.kind = kind;
+    byId("toast-title").textContent = title;
     byId("toast-message").textContent = message;
-    byId("toast").hidden = false;
-    toastTimer = window.setTimeout(() => { byId("toast").hidden = true; }, 4500);
+    byId("toast-icon").innerHTML = kind === "loading" ? '<span class="refresh-spinner"></span>'
+        : icon({ success: "check", error: "x", info: "info" }[kind]);
+    notification.hidden = false;
+    if (kind === "success" || kind === "info") {
+        toastTimer = window.setTimeout(hideToast, 5000);
+    }
+}
+
+function showRefresh(key) {
+    if (!refreshes.get(key).dismissed) {
+        toast("Загружаем актуальные данные аукциона…", {
+            kind: "loading", title: "Обновление данных", owner: key,
+        });
+    }
+}
+
+function saveRefresh(key, value) {
+    try {
+        if (value) sessionStorage.setItem(key, JSON.stringify(value));
+        else sessionStorage.removeItem(key);
+    } catch {
+        // Команда продолжает отслеживаться в памяти текущей страницы.
+    }
+}
+
+function resumeRefresh() {
+    if (!appState.selectedItemId) return;
+    const key = refreshKey();
+    if (refreshes.has(key)) {
+        showRefresh(key);
+        return;
+    }
+    try {
+        const saved = JSON.parse(sessionStorage.getItem(key));
+        if (typeof saved?.id === "string" && saved.until > Date.now()) {
+            refreshes.set(key, saved);
+            showRefresh(key);
+            trackRefresh(appState.selectedItemId, saved);
+        } else if (saved) {
+            saveRefresh(key, null);
+        }
+    } catch {
+        // Хранилище недоступно или содержит повреждённую запись.
+    }
+}
+
+function refreshError(code) {
+    return {
+        RateLimitError: "EXBO ограничил частоту запросов. Повторите попытку позже.",
+        HistoryRefreshFailed: "Не удалось обновить историю продаж. Повторите попытку.",
+        SnapshotInconsistent: "Не удалось подтвердить согласованность лотов. Повторите попытку.",
+        CommandExpired: "Команда больше недоступна. Запросите обновление снова.",
+        Timeout: "Ядро не подтвердило обновление вовремя. Проверьте его состояние и повторите попытку.",
+        RequestFailed: "Не удалось поставить обновление в очередь. Проверьте соединение и повторите попытку.",
+    }[code] ?? "Не удалось получить данные аукциона. Повторите попытку.";
+}
+
+function matchesPublication(data, result) {
+    return Boolean(result.snapshot_id && data.snapshot_id === result.snapshot_id)
+        || Date.parse(data.received_at) > Date.parse(result.received_at);
+}
+
+async function trackRefresh(itemId, operation) {
+    const key = refreshKey(itemId);
+    const source = auctionKey(itemId);
+    let error = "Timeout";
+    try {
+        if (!operation.id) {
+            const command = await readRefresh(source);
+            if (!command.request_id) throw new Error("Missing command");
+            operation.id = command.request_id;
+            saveRefresh(key, { id: operation.id, until: operation.until });
+        }
+        let result;
+        while (Date.now() < operation.until) {
+            if (!result) {
+                const status = await readRefresh(source, operation.id).catch(() => null);
+                if (status?.status === "error") {
+                    if (status.snapshot_id) failedSnapshots.set(key, status.snapshot_id);
+                    error = status.error ?? "SourceError";
+                    break;
+                }
+                if (status?.status === "done") result = status;
+            }
+            if (result) {
+                if (refreshKey() !== key) return;
+                const days = appState.historyPeriod;
+                const strategy = appState.strategy;
+                const state = await fetchAnalysis(itemId, days, strategy, AbortSignal.timeout(8000));
+                if (refreshKey() !== key) return;
+                if (state.status === "ready" && matchesPublication(state.data, result)
+                    && days === appState.historyPeriod && strategy === appState.strategy) {
+                    failedSnapshots.delete(key);
+                    loadAnalysis.cancel();
+                    applyAnalysis(state);
+                    error = null;
+                    break;
+                }
+            }
+            await new Promise((resolve) => window.setTimeout(resolve, REFRESH_POLL_INTERVAL_MS));
+        }
+    } catch {
+        error = "RequestFailed";
+    } finally {
+        refreshes.delete(key);
+        saveRefresh(key, null);
+        if (refreshKey() === key) {
+            updateRefreshControls();
+            if (error) {
+                if (appState.analysis.status === "loading") {
+                    applyAnalysis({ status: "error", message: refreshError(error), retryable: true });
+                }
+                toast(refreshError(error), { kind: "error", title: "Ошибка обновления", owner: key });
+            } else {
+                toast("Актуальные данные аукциона успешно загружены", {
+                    kind: "success", title: "Данные обновлены", owner: key,
+                });
+            }
+        }
+    }
+}
+
+function startRefresh() {
+    const itemId = appState.selectedItemId;
+    const key = refreshKey(itemId);
+    if (!itemId || refreshes.has(key)) return;
+    const operation = { until: Date.now() + REFRESH_TIMEOUT_MS, data: appState.analysis.data };
+    refreshes.set(key, operation);
+    closePopover();
+    loadAnalysis.cancel();
+    updateRefreshControls();
+    showRefresh(key);
+    trackRefresh(itemId, operation);
 }
 
 function selectPipeline(button) {
@@ -499,22 +644,14 @@ const actions = {
     sidebar: () => setSidebar(!appState.sidebarOpen, true),
     "close-sidebar": () => setSidebar(false, true),
     "retry-items": loadItems,
-    "refresh-analysis": async () => {
-        if (appState.analysis.status !== "loading" && Date.now() >= appState.retryAt) {
-            try {
-                if (await refreshAuction(appState.selectedItemId)) {
-                    toast("Обновление поставлено в очередь.");
-                    return;
-                }
-            } catch {
-                // Следующий опрос продолжит чтение опубликованных данных.
-            }
-            toast("Не удалось запросить обновление.");
-        }
-    },
+    "refresh-analysis": startRefresh,
     "reset-filters": () => saveFilters({ ...DEFAULT_FILTERS }),
     "reset-strategy": () => fillStrategyForm(DEFAULT_STRATEGY),
-    "dismiss-toast": () => { byId("toast").hidden = true; },
+    "dismiss-toast": () => {
+        const operation = refreshes.get(toastOwner);
+        if (operation) operation.dismissed = true;
+        hideToast();
+    },
     statistics: () => {
         selectModel("statistics");
         byId("tab-statistics").focus();

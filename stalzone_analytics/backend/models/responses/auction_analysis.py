@@ -54,6 +54,7 @@ class AuctionVersionResponse(BaseModel):
     """Версия готового результата и текущие признаки устаревания."""
 
     version: str | None = None
+    snapshot_id: str | None = None
     snapshot_age_seconds: int | None = None
     snapshot_stale: bool = False
     history: HistoryStatus | None = None
