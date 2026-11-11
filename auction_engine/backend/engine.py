@@ -375,8 +375,6 @@ class AuctionEngine:
                         "result_snapshot_id": meta.snapshot_id,
                         "result_received_at": meta.received_at,
                     })
-                    if not meta.lots_consistent:
-                        refresh_error = "SnapshotInconsistent"
                 if refresh_error and command.operation == "scan":
                     await db.record_command(
                         key, command, "error", refresh_error,
