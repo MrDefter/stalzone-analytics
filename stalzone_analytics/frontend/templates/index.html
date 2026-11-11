@@ -1,0 +1,335 @@
+{% extends "base.html" %}
+
+{% macro icon(name) -%}
+<svg class="icon" aria-hidden="true" focusable="false">
+    <use href="{{ url_for('static', path='images/icons.svg') }}#{{ name }}"></use>
+</svg>
+{%- endmacro %}
+
+{% block body %}
+{% set history_periods = ((1, "24 часа"), (7, "7 дней"), (14, "14 дней"), (30, "30 дней")) %}
+<a class="skip-link" href="#workspace-main">К содержимому</a>
+<header class="topbar">
+    <div class="topbar-brand">
+        <button class="button icon-button sidebar-toggle" type="button"
+                data-action="sidebar" aria-label="Показать предметы"
+                aria-controls="item-sidebar" aria-expanded="false">
+            {{ icon("panel") }}
+        </button>
+        <div class="brand">
+            {{ icon("radiation") }}
+            <span>STALZONE <strong>Analytics</strong></span>
+        </div>
+    </div>
+
+    <div class="topbar-controls">
+        <span class="live-indicator">
+            <span class="live-dot" aria-hidden="true"></span>Live RU · EXBO
+        </span>
+
+        <label class="search-field topbar-search">
+            {{ icon("search") }}
+            <input type="search" placeholder="Поиск по предметам..."
+                   aria-label="Поиск по предметам в верхней панели"
+                   autocomplete="off" data-item-search>
+        </label>
+
+        <div class="popover-anchor">
+            <button class="button icon-button" type="button" data-popover="application-menu"
+                    aria-expanded="false" aria-controls="application-menu"
+                    aria-label="Настройки и справка" title="Настройки и справка">
+                {{ icon("sliders") }}
+            </button>
+            <div class="popover" id="application-menu" hidden>
+                <button class="menu-option" type="button" data-dialog="interface-dialog">
+                    {{ icon("sliders") }}Настройки интерфейса
+                </button>
+                <button class="menu-option" type="button" data-dialog="about-dialog">
+                    {{ icon("info") }}О приложении
+                </button>
+            </div>
+        </div>
+    </div>
+</header>
+
+<div class="workspace">
+    <button class="sidebar-scrim" type="button" data-action="close-sidebar"
+            aria-label="Закрыть список предметов" hidden></button>
+    <aside class="sidebar" id="item-sidebar" aria-label="Предметы">
+        <div class="sidebar-heading">
+            <h1>{{ icon("box") }}Предметы</h1>
+            <button class="button icon-button sidebar-close" type="button"
+                    data-action="close-sidebar" aria-label="Закрыть список предметов">
+                {{ icon("x") }}
+            </button>
+        </div>
+        <label class="search-field sidebar-search">
+            {{ icon("search") }}
+            <input type="search" placeholder="Поиск по предметам..."
+                   aria-label="Поиск в списке предметов" autocomplete="off" data-item-search>
+        </label>
+        <div class="item-list" id="item-list" aria-label="Каталог предметов"></div>
+    </aside>
+
+    <main class="dashboard" id="workspace-main">
+        <nav class="tabs" role="tablist" aria-label="Модели анализа">
+            <button type="button" role="tab" id="tab-statistics"
+                    aria-controls="statistics" aria-selected="true" data-tab="statistics">
+                {{ icon("bars") }}<span>Статистический анализ</span>
+            </button>
+            <button type="button" role="tab" id="tab-history" aria-controls="history"
+                    aria-selected="false" tabindex="-1" data-tab="history">
+                {{ icon("trend") }}<span>История аукциона</span>
+            </button>
+            <button type="button" role="tab" id="tab-forecasts" aria-controls="forecasts"
+                    aria-selected="false" tabindex="-1" data-tab="forecasts">
+                {{ icon("layers") }}<span>Прогнозы</span>
+            </button>
+            <button type="button" role="tab" id="tab-ml" aria-controls="ml"
+                    aria-selected="false" tabindex="-1" data-tab="ml">
+                {{ icon("network") }}<span>ML</span>
+            </button>
+        </nav>
+
+        <div class="dashboard-content">
+            <div class="notice analysis-notice" id="analysis-notice" hidden>
+                {{ icon("info") }}
+                <div class="analysis-notice-text" role="status" aria-live="polite">
+                    <p id="analysis-message"></p>
+                    <ul id="analysis-reasons" hidden></ul>
+                </div>
+                <button class="button" id="analysis-refresh" type="button"
+                        data-action="refresh-analysis" hidden>Обновить</button>
+            </div>
+            <section class="statistics-layout" id="statistics" role="tabpanel"
+                     aria-labelledby="tab-statistics">
+                <div class="overview">
+                    <div class="metrics" id="metrics" aria-label="Показатели"></div>
+
+                    <section class="panel lots-panel" aria-labelledby="lots-title">
+                        <div class="panel-heading lots-heading">
+                            <div class="section-heading">
+                                {{ icon("target") }}
+                                <div>
+                                    <h2 id="lots-title">Активные лоты</h2>
+                                    <p id="lots-subtitle"></p>
+                                </div>
+                            </div>
+                            <div class="table-actions">
+                                <div class="popover-anchor">
+                                    <button class="button" type="button" id="filter-button"
+                                            data-popover="filters-panel" aria-expanded="false"
+                                            aria-controls="filters-panel">
+                                        {{ icon("filter") }}Фильтры
+                                        <span class="filter-dot" hidden></span>
+                                    </button>
+                                    <form class="popover filter-panel" id="filters-panel" hidden>
+                                        <h3>Фильтры лотов</h3>
+                                        <label class="field">
+                                            Минимальный ROI, %
+                                            <input name="minRoi" type="number" step="any"
+                                                   placeholder="Любой ROI">
+                                        </label>
+                                        <label class="field">
+                                            Максимальная покупка, ₽
+                                            <input name="maxPurchasePrice" type="text" inputmode="numeric"
+                                                   pattern="[0-9]+" placeholder="Любая цена">
+                                        </label>
+                                        <label class="field">
+                                            Статус анализа
+                                            <select name="status">
+                                                <option value="all">Все статусы</option>
+                                                <option value="candidate">Потенциально выгодно</option>
+                                                <option value="below_roi">Ниже порога ROI</option>
+                                                <option value="low_liquidity">Низкая ликвидность</option>
+                                                <option value="buyout_unavailable">Нет цены выкупа</option>
+                                                <option value="sell_quantity_missing">Не задан размер партии</option>
+                                                <option value="insufficient_history">Недостаточно истории</option>
+                                                <option value="history_unavailable">История продаж недоступна</option>
+                                                <option value="price_rules_unverified">Правила не подтверждены</option>
+                                                <option value="variant_unverified">Вариант не подтверждён</option>
+                                                <option value="sharp_price_drop">Резкое падение цены</option>
+                                                <option value="unassessed">Без оценки</option>
+                                            </select>
+                                        </label>
+                                        <div class="form-actions">
+                                            <button class="button" type="button"
+                                                    data-action="reset-filters">Сбросить</button>
+                                            <button class="button primary"
+                                                    type="submit">Применить</button>
+                                        </div>
+                                    </form>
+                                </div>
+                                <button class="button" type="button" data-action="export">
+                                    {{ icon("download") }}Экспорт
+                                </button>
+                            </div>
+                        </div>
+                        <div class="table-scroll" role="region" tabindex="0"
+                             aria-labelledby="lots-title" id="table-scroll">
+                            <table class="lots-table">
+                                <thead>
+                                    <tr>
+                                        {% for key, label in (
+                                            ("id", "Лот"),
+                                            ("buyout_total", "Выкуп за лот"),
+                                            ("exit_price_per_pack", "Цена выхода за партию"),
+                                            ("commission_total", "Доля комиссии"),
+                                            ("amount", "Кол-во"),
+                                            ("profit_total", "Потенциальная прибыль"),
+                                            ("roi_percent", "ROI"),
+                                            ("status", "Статус")
+                                        ) %}
+                                        <th scope="col" aria-sort="none">
+                                            <button class="sort-button" type="button"
+                                                    data-sort="{{ key }}">
+                                                {{ label }}{{ icon("sort") }}
+                                            </button>
+                                        </th>
+                                        {% endfor %}
+                                    </tr>
+                                </thead>
+                                <tbody id="lots-body"></tbody>
+                            </table>
+                        </div>
+                        <div class="empty table-empty" id="table-empty" hidden></div>
+                    </section>
+
+                    <div class="chart-grid">
+                        <section class="panel chart-card" aria-labelledby="price-title">
+                            <div class="chart-heading">
+                                <div class="section-heading">
+                                    {{ icon("trend") }}
+                                    <div>
+                                        <h2 id="price-title">История цены</h2>
+                                        <p id="price-caption"></p>
+                                        <p id="price-warning" hidden></p>
+                                    </div>
+                                </div>
+                                <select class="period-select" id="statistics-period"
+                                        aria-label="Период истории продаж">
+                                    {% for days, label in history_periods %}
+                                    <option value="{{ days }}">{{ label }}</option>
+                                    {% endfor %}
+                                </select>
+                            </div>
+                            <div class="chart-plot" id="price-chart"></div>
+                        </section>
+                        <section class="panel chart-card" aria-labelledby="sales-title">
+                            <div class="section-heading">
+                                {{ icon("bars") }}
+                                <div>
+                                    <h2 id="sales-title">Ликвидность</h2>
+                                    <p id="sales-caption"></p>
+                                </div>
+                            </div>
+                            <div class="chart-plot" id="sales-chart"></div>
+                        </section>
+                    </div>
+                </div>
+
+                <aside class="panel details-panel" aria-labelledby="detail-title">
+                    <div class="section-heading detail-heading">
+                        {{ icon("tag") }}<h2 id="detail-title">Детали лота</h2>
+                    </div>
+                    <div id="lot-details" class="lot-details" aria-live="polite"></div>
+                    <div class="details-controls">
+                        <button class="button outline-accent" type="button"
+                                data-dialog="model-dialog">
+                            {{ icon("flask") }}Настройки модели
+                        </button>
+                        <div class="popover-anchor">
+                            <button class="button pipeline-button" type="button"
+                                    data-popover="pipeline-menu" aria-expanded="false"
+                                    aria-controls="pipeline-menu">
+                                {{ icon("switch") }}<span>Сменить пайплайн</span>{{ icon("chevron") }}
+                            </button>
+                            <div class="popover pipeline-menu" id="pipeline-menu" hidden>
+                                <button class="menu-option" type="button" data-pipeline="conservative_q25">
+                                    {{ icon("check") }}Консервативный Q25
+                                </button>
+                                <button class="menu-option" type="button" data-pipeline="median">
+                                    {{ icon("clock") }}Медианная оценка
+                                </button>
+                                <button class="menu-option" type="button" data-pipeline="combined">
+                                    {{ icon("clock") }}Комбинированная оценка
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </aside>
+            </section>
+
+            <section id="history" class="history-layout" role="tabpanel"
+                     aria-labelledby="tab-history" hidden>
+                <div class="panel history-heading">
+                    <div class="section-heading">
+                        {{ icon("clock") }}
+                        <div>
+                            <h2 id="history-item">История аукциона</h2>
+                            <p id="history-caption"></p>
+                        </div>
+                    </div>
+                </div>
+                <section class="panel chart-card history-chart" aria-labelledby="history-price-title">
+                    <div class="chart-heading">
+                        <div class="section-heading">
+                            {{ icon("trend") }}
+                            <div>
+                                <h2 id="history-price-title">История цены</h2>
+                                <p id="history-price-caption"></p>
+                                <p id="history-price-warning" hidden></p>
+                            </div>
+                        </div>
+                        <div class="period-switch" role="group" aria-label="Период истории продаж">
+                            {% for days, label in history_periods %}
+                            <button type="button" data-period="{{ days }}"
+                                    aria-pressed="false">{{ label }}</button>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="chart-plot" id="history-price-chart"></div>
+                </section>
+                <section class="panel chart-card history-chart sales-history"
+                         aria-labelledby="history-sales-title">
+                    <div class="section-heading">
+                        {{ icon("bars") }}
+                        <div>
+                            <h2 id="history-sales-title">Продажи партий</h2>
+                            <p id="history-sales-caption"></p>
+                        </div>
+                    </div>
+                    <div class="chart-plot" id="history-sales-chart"></div>
+                </section>
+            </section>
+
+            <section id="forecasts" class="panel future-panel" role="tabpanel"
+                     aria-labelledby="tab-forecasts" hidden>
+                <div class="future-icon">{{ icon("layers") }}</div>
+                <h2>Прогнозы</h2>
+                <p>Здесь появятся прогнозы цены и спроса.</p>
+                <button class="button outline-accent" type="button"
+                        data-action="statistics">К статистическому анализу</button>
+            </section>
+            <section id="ml" class="panel future-panel" role="tabpanel"
+                     aria-labelledby="tab-ml" hidden>
+                <div class="future-icon">{{ icon("network") }}</div>
+                <h2>Машинное обучение</h2>
+                <p>Здесь появятся результаты моделей машинного обучения.</p>
+                <button class="button outline-accent" type="button"
+                        data-action="statistics">К статистическому анализу</button>
+            </section>
+        </div>
+    </main>
+</div>
+
+{% include "dialogs.html" %}
+
+<div id="toast" class="toast" role="status" aria-live="polite" hidden>
+    {{ icon("info") }}
+    <span id="toast-message"></span>
+    <button class="button icon-button" type="button" data-action="dismiss-toast"
+            aria-label="Закрыть уведомление">{{ icon("x") }}</button>
+</div>
+<noscript><p class="noscript">Включите JavaScript, чтобы открыть интерфейс.</p></noscript>
+{% endblock %}

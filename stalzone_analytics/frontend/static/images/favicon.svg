@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+    <rect width="24" height="24" rx="5" fill="#17191c"/>
+    <circle cx="12" cy="12" r="10" fill="none" stroke="#ffc344"/>
+    <g fill="#ffc344">
+        <circle cx="12" cy="12" r="2.3"/>
+        <path id="blade" d="M9.6 8.2 7.8 5.1a8.1 8.1 0 0 1 8.4 0l-1.8 3.1a4.4 4.4 0 0 0-4.8 0Z"/>
+        <use href="#blade" transform="rotate(120 12 12)"/>
+        <use href="#blade" transform="rotate(240 12 12)"/>
+    </g>
+</svg>

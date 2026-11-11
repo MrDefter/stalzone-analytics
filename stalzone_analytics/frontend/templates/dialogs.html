@@ -1,0 +1,75 @@
+<dialog id="model-dialog" class="dialog" aria-labelledby="model-title">
+    <form id="model-form">
+        <header class="dialog-heading">
+            <div class="section-heading">{{ icon("flask") }}
+                <div>
+                    <h2 id="model-title">Настройки модели</h2>
+                    <p>Консервативный Q25</p>
+                </div>
+            </div>
+            <button class="button icon-button" type="button" data-close-dialog
+                    aria-label="Закрыть настройки модели">{{ icon("x") }}</button>
+        </header>
+        <section class="model-section" aria-labelledby="strategy-title">
+            <h3 id="strategy-title">Параметры стратегии</h3>
+            <div class="model-fields">
+                <label class="field">
+                    Минимум сопоставимых продаж
+                    <input type="number" name="min_sales" min="5" max="200" step="1" required>
+                </label>
+                <label class="field">
+                    Минимальный ROI, %
+                    <input type="number" name="min_roi_percent" min="0" max="100" step="0.1" required>
+                </label>
+            </div>
+        </section>
+        <section class="model-section" aria-labelledby="algorithm-title">
+            <h3 id="algorithm-title">Алгоритм оценки</h3>
+            <p>Автоматический выбор периода из 3 часов, 24 часов, 7 и 14 дней.
+                Q25, ликвидность и конкуренция оцениваются по стандартным партиям.
+                Прибыль рассчитывается пропорционально всему объёму покупки.</p>
+        </section>
+        <footer class="form-actions dialog-actions">
+            <button class="button" type="button" data-close-dialog>Отмена</button>
+            <button class="button" type="button" data-action="reset-strategy">По умолчанию</button>
+            <button class="button primary" type="submit">Применить</button>
+        </footer>
+    </form>
+</dialog>
+
+<dialog id="interface-dialog" class="dialog compact-dialog" aria-labelledby="interface-title">
+    <form id="interface-form">
+        <header class="dialog-heading">
+            <div class="section-heading">{{ icon("sliders") }}<h2 id="interface-title">Настройки интерфейса</h2></div>
+            <button class="button icon-button" type="button" data-close-dialog
+                    aria-label="Закрыть настройки интерфейса">{{ icon("x") }}</button>
+        </header>
+        <label class="field">
+            Плотность строк
+            <select name="density">
+                <option value="regular">Обычная</option>
+                <option value="compact">Компактная</option>
+            </select>
+        </label>
+        <label class="toggle-field">
+            <input type="checkbox" name="reduceMotion">Сократить анимации
+        </label>
+        <footer class="form-actions dialog-actions">
+            <button class="button" type="button" data-close-dialog>Закрыть</button>
+            <button class="button primary" type="submit">Применить</button>
+        </footer>
+    </form>
+</dialog>
+
+<dialog id="about-dialog" class="dialog compact-dialog" aria-labelledby="about-title">
+    <header class="dialog-heading">
+        <div class="section-heading">{{ icon("info") }}<h2 id="about-title">О приложении</h2></div>
+        <button class="button icon-button" type="button" data-close-dialog
+                aria-label="Закрыть описание">{{ icon("x") }}</button>
+    </header>
+    <p class="about-copy">STALZONE Analytics помогает просматривать лоты и историю аукциона.
+        Каталог предметов загружается из локальной конфигурации.</p>
+    <footer class="form-actions dialog-actions">
+        <button class="button primary" type="button" data-close-dialog>Закрыть</button>
+    </footer>
+</dialog>

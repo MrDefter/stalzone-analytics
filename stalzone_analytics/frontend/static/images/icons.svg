@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+    <symbol id="radiation" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="10.75" stroke-width="1.1"/>
+        <g fill="currentColor" stroke="none">
+            <circle cx="12" cy="12" r="2.45"/>
+            <path id="radiation-blade" d="M9.5 8.1 7.2 4.2a9.1 9.1 0 0 1 9.6 0l-2.3 3.9a4.6 4.6 0 0 0-5 0Z"/>
+            <use href="#radiation-blade" transform="rotate(120 12 12)"/>
+            <use href="#radiation-blade" transform="rotate(240 12 12)"/>
+        </g>
+    </symbol>
+    <symbol id="box" viewBox="0 0 24 24">
+        <path d="m12 2 9 5v10l-9 5-9-5V7l9-5Zm0 10 9-5M3 7l9 5v10"/>
+    </symbol>
+    <symbol id="search" viewBox="0 0 24 24">
+        <circle cx="10.5" cy="10.5" r="6.5"/><path d="m16 16 4.5 4.5"/>
+    </symbol>
+    <symbol id="bars" viewBox="0 0 24 24">
+        <path fill="currentColor" stroke="none" d="M3 14h3v7H3zm5-5h3v12H8zm5-6h3v18h-3zm5 3h3v15h-3z"/>
+    </symbol>
+    <symbol id="trend" viewBox="0 0 24 24">
+        <path d="m2.5 17.5 6.2-6.3 4.4 4.3 8.4-9M16.7 6.5h4.8v4.8"/>
+    </symbol>
+    <symbol id="layers" viewBox="0 0 24 24">
+        <path d="m12 2.8 9.8 4.6L12 12 2.2 7.4 12 2.8Zm-9.8 9.3L12 16.7l9.8-4.6M2.2 16.7 12 21.3l9.8-4.6"/>
+    </symbol>
+    <symbol id="network" viewBox="0 0 24 24">
+        <path d="m7 6 3.5 4M16.9 6l-3.5 4M7 18l3.5-4m6.4 4-3.5-4"/>
+        <circle cx="12" cy="12" r="2.4"/><circle cx="5.5" cy="4.5" r="2"/>
+        <circle cx="18.5" cy="4.5" r="2"/><circle cx="5.5" cy="19.5" r="2"/>
+        <circle cx="18.5" cy="19.5" r="2"/>
+    </symbol>
+    <symbol id="tag" viewBox="0 0 24 24">
+        <path d="M3 3h8.4L21 12.6 12.6 21 3 11.4V3Z"/><circle cx="7.3" cy="7.3" r="1.1"/>
+    </symbol>
+    <symbol id="target" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3.9"/>
+        <path d="M12 1.5v5m0 11v5M1.5 12h5m11 0h5"/>
+    </symbol>
+    <symbol id="count" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.2"/><circle cx="12" cy="12" r="4.7"/>
+    </symbol>
+    <symbol id="filter" viewBox="0 0 24 24">
+        <path d="M3 4.5h18l-7 8V20l-4-2v-5.5l-7-8Z"/>
+    </symbol>
+    <symbol id="download" viewBox="0 0 24 24">
+        <path d="M12 3v11m-4.5-4.5L12 14l4.5-4.5M4 15v5h16v-5"/>
+    </symbol>
+    <symbol id="info" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9.1"/><path d="M12 11v5.2M12 7.8h.01" stroke-width="2"/>
+    </symbol>
+    <symbol id="flask" viewBox="0 0 24 24">
+        <path d="M9 3h6m-5 0v6l-6 9.5A1.6 1.6 0 0 0 5.4 21h13.2a1.6 1.6 0 0 0 1.4-2.5L14 9V3M7.4 14h9.2"/>
+    </symbol>
+    <symbol id="switch" viewBox="0 0 24 24">
+        <path d="M20 4v5h-5m5 0a8 8 0 0 0-13.7-3M4 20v-5h5m-5 0a8 8 0 0 0 13.7 3"/>
+    </symbol>
+    <symbol id="chevron" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></symbol>
+    <symbol id="sort" viewBox="0 0 24 24"><path d="m8 9 4-4 4 4m-8 6 4 4 4-4"/></symbol>
+    <symbol id="arrow-up" viewBox="0 0 24 24"><path d="M12 19V5m-5 5 5-5 5 5"/></symbol>
+    <symbol id="arrow-down" viewBox="0 0 24 24"><path d="M12 5v14m-5-5 5 5 5-5"/></symbol>
+    <symbol id="check" viewBox="0 0 24 24"><path d="m4 12 5 5L20 6"/></symbol>
+    <symbol id="x" viewBox="0 0 24 24"><path d="m6 6 12 12M18 6 6 18"/></symbol>
+    <symbol id="panel" viewBox="0 0 24 24">
+        <rect x="3" y="4" width="18" height="16" rx="2"/><path d="M9 4v16"/>
+    </symbol>
+    <symbol id="inbox" viewBox="0 0 24 24">
+        <path d="M5 4h14l3 8v7a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1v-7l3-8Zm-3 8h6l1.6 3h4.8l1.6-3h6"/>
+    </symbol>
+    <symbol id="sliders" viewBox="0 0 24 24">
+        <path d="M3 6h6m4 0h8M3 12h10m4 0h4M3 18h3m4 0h11"/>
+        <circle cx="11" cy="6" r="2"/><circle cx="15" cy="12" r="2"/><circle cx="8" cy="18" r="2"/>
+    </symbol>
+    <symbol id="clock" viewBox="0 0 24 24">
+        <circle cx="12" cy="12" r="9"/><path d="M12 6.8v5.4l3.6 2.1"/>
+    </symbol>
+    <symbol id="connection" viewBox="0 0 24 24">
+        <path d="M18 17a8 8 0 1 1 1.2-9.2M17 13l4 4m0-4-4 4"/>
+    </symbol>
+</svg>

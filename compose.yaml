@@ -1,0 +1,26 @@
+services:
+  clickhouse:
+    image: clickhouse/clickhouse-server:26.8.36.3
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${STALZONE_CLICKHOUSE_PORT:-8123}:8123"
+    environment:
+      CLICKHOUSE_DB: ${STALZONE_CLICKHOUSE_HISTORY_DATABASE:-stalzone_history}
+      CLICKHOUSE_USER: ${STALZONE_CLICKHOUSE_USER:-stalzone}
+      CLICKHOUSE_PASSWORD: ${STALZONE_CLICKHOUSE_PASSWORD:?Set STALZONE_CLICKHOUSE_PASSWORD in .env}
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - >-
+          clickhouse-client --user "$$CLICKHOUSE_USER"
+          --password "$$CLICKHOUSE_PASSWORD" --database default
+          --query 'SELECT 1' >/dev/null
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  clickhouse_data:

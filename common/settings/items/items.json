@@ -1,0 +1,28 @@
+{
+  "items": [
+    {
+      "item_id": "l0og1",
+      "name_ru": "Стандартные запчасти",
+      "sell_quantity": 10,
+      "homogeneous": true
+    },
+    {
+      "item_id": "qjqw9",
+      "name_ru": "Стандартные инструменты",
+      "sell_quantity": 10,
+      "homogeneous": true
+    },
+    {
+      "item_id": "y3nmw",
+      "name_ru": "Продвинутые запчасти",
+      "sell_quantity": 10,
+      "homogeneous": true
+    },
+    {
+      "item_id": "4q7pl",
+      "name_ru": "Продвинутые инструменты",
+      "sell_quantity": 10,
+      "homogeneous": true
+    }
+  ]
+}

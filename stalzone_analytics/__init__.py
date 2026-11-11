@@ -1,0 +1,1 @@
+"""Веб-сервис STALZONE Analytics."""

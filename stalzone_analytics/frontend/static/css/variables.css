@@ -1,0 +1,122 @@
+:root {
+    color-scheme: dark;
+    --bg: #0d0f11;
+    --panel: #17191c;
+    --surface: #202327;
+    --line: #303338;
+    --soft-line: #27292c;
+    --text: #f1f1f1;
+    --muted: #a4a7ad;
+    --muted-strong: #c0c2c7;
+    --accent: #ffc344;
+    --accent-strong: #ffd270;
+    --accent-line: #c69531;
+    --accent-soft: rgb(245 185 66 / 9%);
+    --positive: #9ae970;
+    --warning: #f3b544;
+    --negative: #f17b75;
+    --green-glow: rgb(132 214 84 / 28%);
+    --radius: 13px;
+    --button-radius: 8px;
+    --gap: clamp(12px, 1.02vw, 20px);
+    --sidebar-width: clamp(228px, 17.7vw, 335px);
+    --details-width: clamp(276px, 21.4vw, 392px);
+    --header-height: 68px;
+    --table-row-height: clamp(38px, 4.15vh, 44px);
+    --motion: 160ms ease;
+    --zone-image: url("../images/exclusion-zone.webp");
+    --panel-sheen: linear-gradient(142deg, #1c1e20 0%, var(--panel) 48%, #141619 100%);
+    --shadow-popover: 0 12px 36px rgb(0 0 0 / 52%);
+    font-family: "Segoe UI Variable", "Segoe UI", system-ui, sans-serif;
+    font-size: 15px;
+    font-weight: 400;
+    line-height: 1.4;
+}
+
+*, *::before, *::after {
+    box-sizing: border-box;
+}
+
+body {
+    min-width: 320px;
+    margin: 0;
+    background: var(--bg);
+    color: var(--text);
+}
+
+button, input, select {
+    font: inherit;
+    color: inherit;
+}
+
+button {
+    cursor: pointer;
+}
+
+button, input, select, a {
+    -webkit-tap-highlight-color: transparent;
+}
+
+button:focus-visible,
+a:focus-visible,
+[tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 3px;
+}
+
+input:focus-visible, select:focus-visible {
+    outline: 1px solid var(--accent);
+    outline-offset: 1px;
+}
+
+h1, h2, h3, p, dl, dd {
+    margin: 0;
+}
+
+[hidden] {
+    display: none !important;
+}
+
+.icon {
+    display: inline-block;
+    flex: none;
+    width: 20px;
+    height: 20px;
+    vertical-align: middle;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 1.55;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.skip-link {
+    position: fixed;
+    z-index: 20;
+    top: 12px;
+    left: 12px;
+    padding: 10px 16px;
+    transform: translateY(-160%);
+    border-radius: var(--button-radius);
+    background: var(--accent);
+    color: var(--bg);
+    font-weight: 600;
+}
+
+.skip-link:focus {
+    transform: none;
+}
+
+body[data-density="compact"] {
+    --table-row-height: 33px;
+}
+
+body[data-motion="reduced"] {
+    --motion: 0s;
+}
+
+@media (prefers-reduced-motion: reduce) {
+    :root {
+        --motion: 0s;
+    }
+}

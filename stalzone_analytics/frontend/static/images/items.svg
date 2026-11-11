@@ -1,0 +1,71 @@
+<svg xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <linearGradient id="injector-metal" x2="0" y2="1">
+            <stop stop-color="#faf8ec"/><stop offset=".19" stop-color="#b7babc"/>
+            <stop offset=".39" stop-color="#51555c"/><stop offset=".69" stop-color="#22262b"/>
+            <stop offset="1" stop-color="#879099"/>
+        </linearGradient>
+        <linearGradient id="injector-liquid" x2="0" y2="1">
+            <stop stop-color="#fff3a4"/><stop offset=".32" stop-color="#f9bd32"/>
+            <stop offset=".69" stop-color="#cf8413"/><stop offset="1" stop-color="#62400d"/>
+        </linearGradient>
+        <linearGradient id="armor-metal" x1=".1" y1="0" x2=".83" y2="1">
+            <stop stop-color="#afb2b1"/><stop offset=".32" stop-color="#72777a"/>
+            <stop offset=".7" stop-color="#40444a"/><stop offset="1" stop-color="#2b2e32"/>
+        </linearGradient>
+        <linearGradient id="ammo-brass" x2="0" y2="1">
+            <stop stop-color="#eac789"/><stop offset=".23" stop-color="#c78d47"/>
+            <stop offset=".56" stop-color="#78502d"/><stop offset=".85" stop-color="#4c3219"/>
+            <stop offset="1" stop-color="#ab7c46"/>
+        </linearGradient>
+        <linearGradient id="ammo-tip" x2="0" y2="1">
+            <stop stop-color="#e4b27e"/><stop offset=".35" stop-color="#9e5b2a"/>
+            <stop offset=".76" stop-color="#533315"/><stop offset="1" stop-color="#855631"/>
+        </linearGradient>
+        <g id="cartridge">
+            <path fill="url(#ammo-tip)" stroke="#8c633b" stroke-width=".6" d="M39 27h7c5.5.8 10.8 2.3 14 5-3.2 2.7-8.5 4.2-14 5h-7Z"/>
+            <path fill="url(#ammo-brass)" stroke="#a4794a" stroke-width=".7" d="M8 25h23l7 2h6v10h-6l-7 2H8Z"/>
+            <path fill="#453021" d="M9 25h3v14H9z"/>
+            <path fill="url(#ammo-brass)" stroke="#97714e" stroke-width=".65" d="M5.5 24.5h4v15h-4z"/>
+            <path fill="none" stroke="#f6d591" stroke-opacity=".55" stroke-width="1.1" d="M13 27h17l7 2h6"/>
+        </g>
+    </defs>
+    <symbol id="serum" viewBox="0 0 64 64">
+        <g transform="rotate(-49 32 32)">
+            <path fill="#b4a57f" d="m1 32 8.7-1.6v3.2Z"/>
+            <path fill="url(#injector-metal)" stroke="#3d3d38" stroke-width=".8" d="M9 28h7v8H9z"/>
+            <rect x="14" y="25.6" width="34" height="12.8" rx="2.3" fill="url(#injector-liquid)" stroke="#5f512e" stroke-width="1"/>
+            <path fill="#f4d178" fill-opacity=".68" d="M16 27h28v1.7H16z"/>
+            <path fill="#4b3015" fill-opacity=".48" d="M16 35.4h30v1.5H16z"/>
+            <path fill="url(#injector-metal)" stroke="#34383d" stroke-width=".8" d="M44 24.7h8.1l2.5 2.5v9.6l-2.5 2.5H44Z"/>
+            <rect x="51" y="28.5" width="10" height="7" rx="1" fill="url(#injector-metal)" stroke="#303338" stroke-width=".65"/>
+            <path fill="#e2e1d9" d="M58 26.5h2.5v11H58z"/>
+            <path d="M20 28v2m7-2v2m7-2v2" stroke="#f6e4ad" stroke-opacity=".6" stroke-width="1"/>
+        </g>
+    </symbol>
+    <symbol id="plate" viewBox="0 0 64 64">
+        <path fill="#262a2e" stroke="#45494b" stroke-width="1" d="m21 7 25 4 8 10-8 33-11 5-23-9-3-9 6-27Z"/>
+        <path fill="url(#armor-metal)" stroke="#838689" stroke-width=".8" d="m21 6 24 4 7 9-8 32-10 5-22-8-3-8 6-26Z"/>
+        <path fill="#979a9b" fill-opacity=".5" d="m21 6 24 4 7 9-9-5-22-4-6 4Z"/>
+        <path fill="#242a30" fill-opacity=".57" d="m43 14 9 5-8 32-10 5 4-7Z"/>
+        <path fill="none" stroke="#d3d5d4" stroke-opacity=".28" d="m13 37 4-13m1-4 1-4m19 31-4 4-15-5"/>
+        <path fill="none" stroke="#23262c" stroke-opacity=".38" d="m23 15 14 2m-20 22 11 4m1-22 7 1m-14 22 6 2"/>
+    </symbol>
+    <symbol id="ammo" viewBox="0 0 64 64">
+        <use href="#cartridge" transform="translate(-7 -4) rotate(-52 32 32) scale(.94)"/>
+        <use href="#cartridge" transform="translate(7 4) rotate(-52 32 32) scale(.91)"/>
+    </symbol>
+    <symbol id="artifact" viewBox="0 0 64 64">
+        <path fill="#412e83" stroke="#8068c0" stroke-width="1" d="M10 24 24 7l24-3 8 19-10 25-17 10L8 42Z"/>
+        <path fill="#d1b5ff" d="M10 24 24 7l8 11-11 13Z"/>
+        <path fill="#8a68dd" d="m24 7 24-3-7 18-9-4Z"/>
+        <path fill="#e1d5ff" d="m48 4 8 19-15-1Z"/>
+        <path fill="#a98cf9" d="m21 31 11-13 9 4-5 15Z"/>
+        <path fill="#6a57b4" d="m41 22 15 1-10 25-10-11Z"/>
+        <path fill="#5d4199" d="m10 24 11 7 8 27L8 42Z"/>
+        <path fill="#9d70eb" d="m21 31 15 6-7 21Z"/>
+        <path fill="#7fd2f7" d="m36 37 10 11-17 10Z"/>
+        <path fill="#7fe2f1" d="m46 48 10-25-5 22Z"/>
+        <path fill="none" stroke="#f0dbff" stroke-opacity=".55" d="m10 24 11 7 11-13 9 4 7-18"/>
+    </symbol>
+</svg>
