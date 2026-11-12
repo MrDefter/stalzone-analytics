@@ -1,0 +1,141 @@
+name: Sync STALZONE Kanban status
+
+on:
+  issues:
+    types: [opened, labeled, unlabeled, reopened, closed]
+  workflow_dispatch:
+    inputs:
+      issue_number:
+        description: "Issue number to synchronize (e.g. 1 or 2)"
+        required: true
+        type: number
+
+permissions:
+  contents: read
+  issues: write
+
+concurrency:
+  group: stalzone-kanban-${{ github.event.issue.number || inputs.issue_number }}
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ensure Kanban labels exist
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          for spec in "stage:backlog:8B949E" "stage:todo:579AEB" "stage:in-progress:E6AB41" "stage:review:AF83E9"; do
+            name="${spec%:*}"
+            color="${spec##*:}"
+            if ! gh api "repos/${GITHUB_REPOSITORY}/labels/${name}" >/dev/null 2>&1; then
+              gh api --method POST "repos/${GITHUB_REPOSITORY}/labels" \
+                -f name="${name}" -f color="${color}" >/dev/null
+            fi
+          done
+
+      - name: Resolve current Issue state
+        id: target
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          issue="$(gh api "repos/${GITHUB_REPOSITORY}/issues/${ISSUE_NUMBER}")"
+          content_id="$(jq -r '.node_id // empty' <<< "${issue}")"
+          if [[ -z "${content_id}" ]]; then
+            echo "::error::Issue node ID is missing"
+            exit 1
+          fi
+          status="Backlog"
+          if [[ "$(jq -r '.state' <<< "${issue}")" == "closed" ]]; then
+            status="Done"
+          else
+            mapfile -t labels < <(jq -r '.labels[].name | select(startswith("stage:"))' <<< "${issue}")
+            if (( ${#labels[@]} > 1 )); then
+              echo "::error::Only one stage:* label is allowed per Issue"
+              exit 1
+            fi
+            case "${labels[0]:-}" in
+              ""|"stage:backlog") status="Backlog" ;;
+              "stage:todo") status="To Do" ;;
+              "stage:in-progress") status="In Progress" ;;
+              "stage:review") status="Review" ;;
+              *)
+                echo "::error::Unrecognized Kanban stage label: ${labels[0]}"
+                exit 1
+                ;;
+            esac
+          fi
+          echo "status=${status}" >> "${GITHUB_OUTPUT}"
+          echo "content_id=${content_id}" >> "${GITHUB_OUTPUT}"
+
+      - name: Update GitHub Project 5
+        env:
+          GH_TOKEN: ${{ secrets.STALZONE_PROJECT_TOKEN }}
+          ISSUE_NUMBER: ${{ github.event.issue.number || inputs.issue_number }}
+          STATUS: ${{ steps.target.outputs.status }}
+          CONTENT_ID: ${{ steps.target.outputs.content_id }}
+        shell: bash
+        run: |
+          set -euo pipefail
+          if [[ -z "${GH_TOKEN:-}" ]]; then
+            echo "::error::Configure STALZONE_PROJECT_TOKEN in repository Actions secrets"
+            exit 1
+          fi
+          project="$(gh api graphql \
+            -f query='query($owner: String!, $number: Int!) {
+              user(login: $owner) {
+                projectV2(number: $number) {
+                  id
+                  fields(first: 100) {
+                    nodes {
+                      ... on ProjectV2SingleSelectField {
+                        id
+                        name
+                        options { id name }
+                      }
+                    }
+                  }
+                }
+              }
+            }' -f owner='MrDefter' -F number=5)"
+          project_id="$(jq -r '.data.user.projectV2.id // empty' <<< "${project}")"
+          field_id="$(jq -r '[.data.user.projectV2.fields.nodes[] | select(.name == "Status") | .id][0] // empty' <<< "${project}")"
+          option_id="$(jq -r --arg status "${STATUS}" \
+            '[.data.user.projectV2.fields.nodes[]
+              | select(.name == "Status")
+              | .options[]
+              | select((.name | ascii_downcase | gsub("[ _-]"; "")) ==
+                       ($status | ascii_downcase | gsub("[ _-]"; "")))
+              | .id][0] // empty' <<< "${project}")"
+          if [[ -z "${project_id}" || -z "${field_id}" || -z "${option_id}" ]]; then
+            echo "::error::Project 5 or its Status option '${STATUS}' is missing/inaccessible"
+            exit 1
+          fi
+          item_id="$(gh api graphql \
+            -f query='mutation($project: ID!, $content: ID!) {
+              addProjectV2ItemById(input: {projectId: $project, contentId: $content}) {
+                item { id }
+              }
+            }' -f project="${project_id}" -f content="${CONTENT_ID}" \
+            --jq '.data.addProjectV2ItemById.item.id')"
+          if [[ -z "${item_id}" || "${item_id}" == "null" ]]; then
+            echo "::error::Could not add/find the Issue in Project 5"
+            exit 1
+          fi
+          gh api graphql \
+            -f query='mutation($project: ID!, $item: ID!, $field: ID!, $option: String!) {
+              updateProjectV2ItemFieldValue(input: {
+                projectId: $project, itemId: $item,
+                fieldId: $field, value: {singleSelectOptionId: $option}
+              }) {
+                projectV2Item { id }
+              }
+            }' -f project="${project_id}" -f item="${item_id}" \
+            -f field="${field_id}" -f option="${option_id}" >/dev/null
+          echo "Issue #${ISSUE_NUMBER} synchronized to '${STATUS}'"
