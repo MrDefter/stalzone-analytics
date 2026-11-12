@@ -28,7 +28,7 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          for spec in "stage:backlog:8B949E" "stage:todo:579AEB" "stage:in-progress:E6AB41" "stage:review:AF83E9"; do
+          for spec in "stage:backlog:8B949E" "stage:ready:579AEB" "stage:in-progress:E6AB41" "stage:review:AF83E9"; do
             name="${spec%:*}"
             color="${spec##*:}"
             if ! gh api "repos/${GITHUB_REPOSITORY}/labels/${name}" >/dev/null 2>&1; then
@@ -62,9 +62,9 @@ jobs:
             fi
             case "${labels[0]:-}" in
               ""|"stage:backlog") status="Backlog" ;;
-              "stage:todo") status="To Do" ;;
-              "stage:in-progress") status="In Progress" ;;
-              "stage:review") status="Review" ;;
+              "stage:ready"|"stage:todo") status="Ready" ;;
+              "stage:in-progress") status="In progress" ;;
+              "stage:review") status="In review" ;;
               *)
                 echo "::error::Unrecognized Kanban stage label: ${labels[0]}"
                 exit 1
