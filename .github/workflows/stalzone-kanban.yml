@@ -113,8 +113,22 @@ jobs:
               | select((.name | ascii_downcase | gsub("[ _-]"; "")) ==
                        ($status | ascii_downcase | gsub("[ _-]"; "")))
               | .id][0] // empty' <<< "${project}")"
-          if [[ -z "${project_id}" || -z "${field_id}" || -z "${option_id}" ]]; then
-            echo "::error::Project 5 or its Status option '${STATUS}' is missing/inaccessible"
+          if [[ -z "${project_id}" ]]; then
+            echo "::error::GitHub Projects #5 is not visible to the configured token"
+            exit 1
+          fi
+          if [[ -z "${field_id}" ]]; then
+            echo "::error::GitHub Projects #5 has no single-select field named Status"
+            echo "Available single-select fields:"
+            jq -r '.data.user.projectV2.fields.nodes[] | select(.name != null) | .name' \
+              <<< "${project}"
+            exit 1
+          fi
+          if [[ -z "${option_id}" ]]; then
+            echo "::error::Status option '${STATUS}' does not exist in GitHub Projects #5"
+            echo "Available Status options:"
+            jq -r '.data.user.projectV2.fields.nodes[]
+              | select(.name == "Status") | .options[] | .name' <<< "${project}"
             exit 1
           fi
           item_id="$(gh api graphql \
