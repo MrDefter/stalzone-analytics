@@ -6,11 +6,14 @@ import {
     DEFAULT_HISTORY_PERIOD,
     DEFAULT_STRATEGY,
     STRATEGY_STORAGE_KEY,
+    canPollVersion,
+    checkAnalysisVersion,
     createAnalysisLoader,
     filterLots,
     historySeries,
     isEstimatedAnalysis,
     loadStrategy,
+    versionPollState,
 } from "../stalzone_analytics/frontend/static/js/auction-data.js";
 import { formatMoney, renderLotRows, renderMetrics } from "../stalzone_analytics/frontend/static/js/ui.js";
 
@@ -35,7 +38,7 @@ test("загрузка передаёт точный ID, окно графика
     assert.equal(DEFAULT_HISTORY_PERIOD, 1);
     assert.deepEqual(queries, [
         {
-            item_id: "AbC9", region: "RU", mode: "production", days: "14",
+            item_id: "AbC9", region: "RU", mode: "production", days: "1",
             min_sales: "20", min_roi_bps: "1000",
         },
         {
@@ -282,6 +285,59 @@ test("неподтверждённая история показывает це�
     analysis.source_errors = { history: { message: "EXBO недоступен" } };
     const unavailable = historySeries(analysis, 1);
     assert.deepEqual(unavailable.prices, []);
-    assert.equal(unavailable.priceEmpty, "Не удалось загрузить историю продаж");
+    assert.equal(unavailable.priceEmpty, "EXBO недоступен");
     assert.equal(unavailable.priceWarning, "");
+});
+
+test("отказ ручной операции блокирует только её версию на том же снимке", () => {
+    const version = (value) => ({ snapshot_id: "S", version: value });
+    assert.equal(versionPollState(version("v1"), "v1", "failed", 0).status, "unchanged");
+    assert.equal(versionPollState(version("failed"), "v1", "failed", 0).status, "failed");
+    assert.equal(versionPollState(version(null), "v1", "failed", 0).status, "pending");
+    assert.equal(versionPollState(version("v2"), "v1", "failed", 0).status, "update");
+});
+
+test("ответы 429 и 503 сохраняют причину и уважают паузу опроса", async () => {
+    const rate = await checkAnalysisVersion("item", DEFAULT_STRATEGY, async () =>
+        new Response("", { status: 429, headers: { "Retry-After": "30" } }));
+    const unavailable = await checkAnalysisVersion("item", DEFAULT_STRATEGY, async () =>
+        new Response("", { status: 503 }));
+    assert.deepEqual(rate, { error: 429, retryMs: 30000 });
+    assert.deepEqual(unavailable, { error: 503, retryMs: 0 });
+    assert.deepEqual(versionPollState(rate, "v1", undefined, 0), {
+        status: "error", failures: 1, retryMs: 30000,
+    });
+    assert.equal(versionPollState(unavailable, "v1", undefined, 1).retryMs, 10000);
+});
+
+test("скрытая вкладка, активный запрос и ручное обновление не запускают опрос", () => {
+    const state = { hidden: false, inFlight: false, refreshing: false, retryAt: 10 };
+    for (const key of ["hidden", "inFlight", "refreshing"]) {
+        assert.equal(canPollVersion({ ...state, [key]: true }, 10), false);
+    }
+    assert.equal(canPollVersion(state, 9), false);
+    assert.equal(canPollVersion(state, 10), true);
+});
+
+test("границы обоих графиков включают конец окна, в том числе через Новый год", () => {
+    const end = "2027-01-01T00:29:00+03:00";
+    const sale = { time: "2027-01-01T00:27:00+03:00", amount: 10, price_per_pack: "750" };
+    const analysis = {
+        sell_quantity: 10, homogeneous: true,
+        coverage: { history_prefix_consistent: true },
+        history: { covered_from: "2026-11-30T00:29:00+03:00", covered_until: end, sales: [sale] },
+    };
+    for (const days of [1, 7, 14, 30]) {
+        const series = historySeries(analysis, days);
+        assert.equal(series.boundaryLabels.length, (days === 1 ? 6 : days) + 1);
+        assert.equal(series.priceIntervals.length + 1, series.boundaryLabels.length);
+        assert.equal(series.latestSaleAt, Date.parse(sale.time));
+        assert.equal(series.prices.at(-1), "750");
+        assert.equal(series.sales.at(-1), 1);
+    }
+    const daily = historySeries(analysis, 1);
+    assert.equal(daily.boundaryLabels[0], daily.boundaryLabels.at(-1));
+    assert.notEqual(daily.boundaryLabels.at(-2), daily.boundaryLabels.at(-1));
+    analysis.history.sales = [{ ...sale, amount: 5 }];
+    assert.equal(historySeries(analysis, 1).latestSaleAt, null);
 });

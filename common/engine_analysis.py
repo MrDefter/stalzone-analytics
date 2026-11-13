@@ -67,6 +67,7 @@ def history_summary(
         last_success_at=point.last_success_at, covered_from=start,
         covered_until=end, initial_complete=point.initial_complete,
         backfill_complete=point.backfill_complete,
+        stale_after_seconds=settings.sync_interval_seconds,
         stale=point.covered_until is not None and (
             now - point.covered_until >= timedelta(
                 seconds=settings.sync_interval_seconds,

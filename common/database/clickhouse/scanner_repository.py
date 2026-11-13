@@ -264,6 +264,8 @@ class ScannerRepository:
             if command.get("result_snapshot_id"):
                 result["snapshot_id"] = command["result_snapshot_id"]
                 result["received_at"] = command["result_received_at"]
+            if command.get("result_analysis_version"):
+                result["analysis_version"] = command["result_analysis_version"]
             return result
         return None
 

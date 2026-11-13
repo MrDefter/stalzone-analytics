@@ -1006,6 +1006,10 @@
     font-variant-numeric: tabular-nums;
 }
 
+.chart-card .section-heading :is(.history-stale, [data-history-status]) {
+    color: var(--accent);
+}
+
 .chart-curve {
     fill: none;
     stroke: var(--accent);

@@ -20,6 +20,7 @@ const dayLabel = new Intl.DateTimeFormat("ru-RU", {
 const dateTimeLabel = new Intl.DateTimeFormat("ru-RU", {
     day: "numeric",
     month: "short",
+    year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
 });
@@ -125,12 +126,15 @@ export function historySeries(analysis, days) {
         const message = analysis.source_errors.history.message ?? "Не удалось загрузить историю продаж";
         return {
             labels: [], prices: [], sales: [], complete: false,
+            boundaryLabels: [], latestSaleAt: null,
             priceIntervals: [], priceCounts: [], coveredIntervals: [], pricePartial: false,
             priceEmpty: message, salesEmpty: message, priceWarning: "",
         };
     }
+    if (analysis.history.covered_until === null) return null;
     const until = Date.parse(analysis.history.covered_until ?? analysis.evaluated_at);
     const from = until - days * DAY_MS;
+    if (!Number.isFinite(until)) return null;
     const step = days === 1 ? DAY_MS / 6 : DAY_MS;
     const length = (until - from) / step;
     const coveredFrom = Date.parse(analysis.history.covered_from);
@@ -139,16 +143,19 @@ export function historySeries(analysis, days) {
     const comparable = analysis.homogeneous && analysis.sell_quantity !== null;
     const consistent = analysis.coverage?.history_prefix_consistent === true;
     const complete = consistent && coveredFrom <= from && coveredUntil >= until;
-    const labels = [];
+    const formatBoundary = days === 1 ? timeLabel : dayLabel;
+    const boundaryLabels = Array.from({ length: length + 1 },
+        (_, index) => formatBoundary.format(from + index * step));
+    const labels = boundaryLabels.slice(0, -1);
     const priceIntervals = [];
     const coveredIntervals = [];
     const priceGroups = Array.from({ length }, () => []);
     const sales = [];
+    let latestSaleAt = null;
     for (let index = 0; index < length; index += 1) {
         const start = from + index * step;
         const end = start + step;
         const covered = consistent && start >= coveredFrom && end <= coveredUntil;
-        labels.push((days === 1 ? timeLabel : dayLabel).format(start));
         priceIntervals.push(`${dateTimeLabel.format(start)}–${dateTimeLabel.format(end)}`);
         coveredIntervals.push(covered);
         sales.push(comparable && covered ? 0 : null);
@@ -169,6 +176,7 @@ export function historySeries(analysis, days) {
                 || (Number.isSafeInteger(price) && price > 0)
             ) {
                 priceGroups[index].push(BigInt(price));
+                latestSaleAt = Math.max(latestSaleAt ?? at, at);
             }
         }
     }
@@ -186,7 +194,8 @@ export function historySeries(analysis, days) {
         ? "Согласованность истории не подтверждена. Возможны пропущенные или повторяющиеся сделки"
         : pricePartial ? "История загружена частично. Показаны доступные продажи." : "";
     return {
-        labels, sales, complete, priceEmpty, salesEmpty, priceIntervals, coveredIntervals,
+        labels, boundaryLabels, latestSaleAt, sales, complete, priceEmpty, salesEmpty,
+        priceIntervals, coveredIntervals,
         prices: priceGroups.map(medianPrice),
         priceCounts: priceGroups.map((group) => group.length),
         pricePartial, priceWarning,
@@ -227,15 +236,45 @@ export async function readRefresh(key, requestId = null) {
     return response.json();
 }
 
-export async function checkAnalysisVersion(itemId, strategy) {
+export function versionPollState(check, currentVersion, failedVersion, failures) {
+    if (check.error) {
+        return { status: "error", failures: failures + 1,
+            retryMs: Math.max(check.retryMs, 5000 * 2 ** Math.min(failures, 4)) };
+    }
+    if (check.version === null) return { status: "pending", failures: 0 };
+    if (check.version === failedVersion) return { status: "failed", failures: 0 };
+    return { status: check.version === currentVersion ? "unchanged" : "update", failures: 0 };
+}
+
+export function canPollVersion({ hidden, inFlight, refreshing, retryAt }, now) {
+    return !hidden && !inFlight && !refreshing && now >= retryAt;
+}
+
+function retryDelay(response) {
+    const header = response.headers.get("Retry-After");
+    const delay = /^\d+$/.test(header)
+        ? Number(header) * 1000 : Date.parse(header) - Date.now();
+    return Math.max(0, delay || 0);
+}
+
+export async function checkAnalysisVersion(itemId, strategy, fetcher = fetch) {
     const params = new URLSearchParams({
         item_id: itemId, region: "RU", mode: AUCTION_MODE,
         min_sales: String(strategy.min_sales), min_roi_bps: String(strategy.min_roi_bps),
     });
-    const response = await fetch(`/api/auction/version?${params}`, {
-        cache: "no-store", signal: AbortSignal.timeout(4500),
-    });
-    return response.ok ? response.json() : null;
+    try {
+        const response = await fetcher(`/api/auction/version?${params}`, {
+            cache: "no-store", signal: AbortSignal.timeout(4500),
+        });
+        if (response.ok) {
+            const result = await response.json();
+            if (result?.version === null || typeof result?.version === "string") return result;
+            return { error: "invalid", retryMs: 0 };
+        }
+        return { error: response.status, retryMs: retryDelay(response) };
+    } catch {
+        return { error: "network", retryMs: 0 };
+    }
 }
 
 export function createAnalysisLoader(update, fetcher = fetch) {
@@ -250,7 +289,8 @@ export function createAnalysisLoader(update, fetcher = fetch) {
         const controller = new AbortController();
         current = controller;
         if (!previousData) update({ status: "loading", days: period });
-        const result = await fetchAnalysis(itemId, period, strategy, controller.signal, fetcher);
+        const signal = AbortSignal.any([controller.signal, AbortSignal.timeout(8000)]);
+        const result = await fetchAnalysis(itemId, period, strategy, signal, fetcher);
         if (current === controller) {
             current = null;
             if (previousData && !result.data) result.data = previousData;
@@ -261,6 +301,7 @@ export function createAnalysisLoader(update, fetcher = fetch) {
         current?.abort();
         current = null;
     };
+    load.pending = () => current !== null;
     return load;
 }
 
@@ -288,7 +329,10 @@ export async function fetchAnalysis(itemId, days, strategy, signal, fetcher = fe
                     : "Сервер не предоставил данные аукциона."
             ),
             retryable: detail?.retryable ?? (response.ok || response.status >= 500),
-            retryAfter: Number.isSafeInteger(seconds) && seconds > 0 ? seconds : 0,
+            retryAfter: Math.max(
+                Number.isSafeInteger(seconds) && seconds > 0 ? seconds : 0,
+                retryDelay(response) / 1000,
+            ),
         };
     } catch {
         return {

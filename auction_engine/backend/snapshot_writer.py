@@ -69,7 +69,7 @@ class SnapshotWriter(ScannerRepository):
     async def store_analysis(
         self, key: HistoryKey, meta: SnapshotMetadata, strategy: str,
         result: AnalysisResult, *, temporary: bool = False,
-    ) -> None:
+    ) -> str:
         """Сохранить расчёт и подтвердить его отдельной строкой агрегатов.
 
         Args:
@@ -78,6 +78,9 @@ class SnapshotWriter(ScannerRepository):
             strategy: Ключ входов расчёта.
             result: Оценка лотов и общие показатели.
             temporary: Ограничить срок хранения пользовательского профиля.
+
+        Returns:
+            Идентификатор опубликованной оценки.
         """
         revision = uuid4().hex
         stamp = datetime.now(UTC)
@@ -121,6 +124,8 @@ class SnapshotWriter(ScannerRepository):
                 None, None, None, None, None, None, json.dumps(aggregate),
             ),
         ])
+
+        return revision
 
     async def store_state(
         self, table: str, key: HistoryKey, value: BaseModel,

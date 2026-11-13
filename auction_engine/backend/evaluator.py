@@ -71,7 +71,7 @@ async def evaluate(
     )
     calculated = perf_counter()
     result.received_at = meta.received_at
-    await snapshots.store_analysis(
+    result.analysis_version = await snapshots.store_analysis(
         key, meta, profile, result, temporary=temporary,
     )
     _LOGGER.info(

@@ -330,6 +330,7 @@ class AuctionEngine:
         """
         meta = await db.latest(key)
         refresh_error = None
+        failed_version = None
         try:
             if isinstance(operation, HistoryOperation):
                 await self._sync(history, key, operation)
@@ -359,7 +360,7 @@ class AuctionEngine:
                     )
                 )
             ):
-                meta, refresh_error = await self._scan(
+                meta, refresh_error, failed_version = await self._scan(
                     history, db, key, item, command, policy,
                 )
                 if command is not None and command.operation == "evaluate":
@@ -374,6 +375,7 @@ class AuctionEngine:
                     command = command.model_copy(update={
                         "result_snapshot_id": meta.snapshot_id,
                         "result_received_at": meta.received_at,
+                        "result_analysis_version": failed_version,
                     })
                 if refresh_error and command.operation == "scan":
                     await db.record_command(
@@ -423,7 +425,7 @@ class AuctionEngine:
         self, history: HistoryWriter, db: SnapshotWriter,
         key: HistoryKey, item: CatalogItem, command: ScannerCommand | None,
         policy: ScannerSettings,
-    ) -> tuple[SnapshotMetadata, str | None]:
+    ) -> tuple[SnapshotMetadata, str | None, str | None]:
         """Собрать лоты и опубликовать версию после подтверждения записи.
 
         Args:
@@ -435,7 +437,7 @@ class AuctionEngine:
             policy: Действующий интервал мониторинга.
 
         Returns:
-            Опубликованный снимок и код ошибки сопутствующей истории.
+            Снимок, код ошибки истории и версия результата с этой ошибкой.
         """
         started = datetime.now(UTC)
         snapshot_id = uuid4().hex
@@ -477,11 +479,15 @@ class AuctionEngine:
                                self.settings.sync_interval_seconds)
             if due in (HistoryOperation.INITIAL, HistoryOperation.INCREMENTAL):
                 updated = await self._sync(history, key, due)
-                await evaluate(history, db, self.settings, key, item,
-                               meta, scan, StrategySettings())
+                result = await evaluate(
+                    history, db, self.settings, key, item,
+                    meta, scan, StrategySettings(),
+                )
                 if updated.status is HistorySyncStatus.ERROR:
-                    return meta, "HistoryRefreshFailed"
-        return meta, None
+                    return (
+                        meta, "HistoryRefreshFailed", result.analysis_version,
+                    )
+        return meta, None, None
 
     async def _sync(
         self, history: HistoryWriter, key: HistoryKey,

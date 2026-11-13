@@ -17,6 +17,13 @@
 {%- endmacro %}
 
 {% block body %}
+{% macro history_freshness() -%}
+    <p data-history-latest hidden></p>
+    <p data-history-status role="status" hidden>
+        <span data-version-message></span>
+        <span> · Показанная версия применена <span data-version-age></span></span>
+    </p>
+{%- endmacro %}
 {% set history_periods = ((1, "24 часа"), (7, "7 дней"), (14, "14 дней"), (30, "30 дней")) %}
 <a class="skip-link" href="#workspace-main">К содержимому</a>
 <header class="topbar">
@@ -127,7 +134,7 @@
                                         <span>Данные: <time id="lots-time"></time></span>
                                     </span>
                                     <span class="lots-time-badge lots-age-badge">
-                                        <span>Последнее обновление: <span id="lots-age"></span></span>
+                                        <span>Анализ применён: <span id="lots-age"></span></span>
                                     </span>
                                 </div>
                                 <span id="lots-quality" class="quality-label" tabindex="0"
@@ -226,6 +233,7 @@
                                     <div>
                                         <h2 id="price-title">История цены</h2>
                                         <p id="price-caption"></p>
+                                        {{ history_freshness() }}
                                     </div>
                                 </div>
                                 <select class="period-select" id="statistics-period"
@@ -306,6 +314,7 @@
                             <div>
                                 <h2 id="history-price-title">История цены</h2>
                                 <p id="history-price-caption"></p>
+                                {{ history_freshness() }}
                                 <p id="history-price-warning" hidden></p>
                             </div>
                         </div>

@@ -53,8 +53,7 @@ export function createChart(plot, kind) {
             return;
         }
         const values = isPrice ? history?.prices : history?.sales;
-        const observed = values?.filter((value) => value !== null).map(Number);
-        if (!observed?.length) {
+        if (!values?.length) {
             points = [];
             const explanation = isPrice ? history?.priceEmpty : history?.salesEmpty;
             plot.innerHTML = `<div class="empty">${emptyContent(
@@ -64,18 +63,23 @@ export function createChart(plot, kind) {
             return;
         }
 
-        const left = isPrice ? 77 : 34;
-        const right = Math.max(left + 1, width - 7);
+        const observed = values.filter((value) => value !== null).map(Number);
+        const left = 77;
+        const right = Math.max(left + 1, width - 28);
         const top = 8;
         const bottom = height - 24;
         const interval = (right - left) / values.length;
-        const { start, end, ticks } = axisScale(observed, isPrice);
+        const { start, end, ticks } = observed.length
+            ? axisScale(observed, isPrice) : { start: 0, end: 1, ticks: [] };
         const yAt = (value) => bottom - (value - start) / (end - start) * (bottom - top);
         points = values.map((value, index) => {
             const covered = history.coveredIntervals[index];
             let description;
             if (value === null) {
-                description = covered ? "Нет сопоставимых цен" : PARTIAL_INTERVAL;
+                description = covered ? "Нет сопоставимых продаж" : PARTIAL_INTERVAL;
+                if (!isPrice && !covered && history.priceCounts[index]) {
+                    description += ` · Наблюдаемых продаж: ${formatInteger(history.priceCounts[index])}`;
+                }
             } else if (isPrice) {
                 description = `Медианная цена: ${formatMedianPrice(value)}`;
             } else {
@@ -84,8 +88,7 @@ export function createChart(plot, kind) {
             return {
                 x: left + (index + 0.5) * interval,
                 y: value === null ? null : yAt(Number(value)),
-                label: history.labels[index],
-                tooltipLabel: isPrice ? history.priceIntervals[index] : history.labels[index],
+                tooltipLabel: history.priceIntervals[index],
                 priceCount: isPrice ? history.priceCounts[index] : 0,
                 partial: isPrice && value !== null && !covered,
                 value: description,
@@ -100,16 +103,15 @@ export function createChart(plot, kind) {
                 <text class="chart-label" text-anchor="end" x="${left - 9}" y="${y + 4}">${label}</text>`;
         }).join("");
 
-        const labelStep = Math.max(1, Math.ceil(49 / interval));
-        const lastIndex = points.length - 1;
-        const labelPoints = points.filter((_, index) => (
-            index === lastIndex || (index % labelStep === 0 && lastIndex - index >= labelStep)
-        ));
-        const gridX = labelPoints.map((point) => {
-            const labelX = Math.max(18, Math.min(width - 18, point.x));
+        const labelStep = Math.max(1, Math.ceil(55 / interval));
+        const lastIndex = values.length;
+        const gridX = history.boundaryLabels.map((label, index) => {
+            if (index !== lastIndex && (index % labelStep !== 0
+                || (index > 0 && lastIndex - index < labelStep))) return "";
+            const x = left + index * interval;
             return `
-                <line class="chart-gridline" x1="${point.x}" x2="${point.x}" y1="${top}" y2="${bottom}"/>
-                <text class="chart-label" text-anchor="middle" x="${labelX}" y="${height - 7}">${point.label}</text>`;
+                <line class="chart-gridline" x1="${x}" x2="${x}" y1="${top}" y2="${bottom}"/>
+                <text class="chart-label" text-anchor="middle" x="${x}" y="${height - 7}">${label}</text>`;
         }).join("");
 
         const color = isPrice ? "#ffc344" : "#79cf49";
@@ -128,13 +130,16 @@ export function createChart(plot, kind) {
 
         const title = isPrice ? "Медианная цена продажи партии" : "Количество проданных партий";
         plot.innerHTML = `
-            <svg class="chart-svg" viewBox="0 0 ${width} ${height}"
+                <svg class="chart-svg" viewBox="0 0 ${width} ${height}"
                  role="group" aria-label="${title} по ${packLabel(quantity)}">
                 <defs><linearGradient id="${gradient}" x2="0" y2="1">
                     <stop stop-color="${color}" stop-opacity="${isPrice ? 0.29 : 0.86}"/>
                     <stop offset="100%" stop-color="${color}" stop-opacity="${isPrice ? 0 : 0.25}"/>
                 </linearGradient></defs>
-                <g aria-hidden="true">${gridY}${gridX}${plotArea}</g>
+                <g aria-hidden="true">${gridY}${gridX}${plotArea}
+                    ${observed.length ? "" : `<text class="chart-label" text-anchor="middle"
+                        x="${(left + right) / 2}" y="${(top + bottom) / 2}">Нет данных</text>`}
+                </g>
                 <g class="chart-highlight" aria-hidden="true" visibility="hidden">
                     <line class="chart-guide" y1="${top}" y2="${bottom}"/>
                     ${isPrice ? '<circle class="chart-marker" r="4"/>' : ""}

@@ -18,4 +18,5 @@ class HistoryStatus(BaseModel):
     initial_complete: bool = False
     backfill_complete: bool = False
     stale: bool = False
+    stale_after_seconds: int | None = None
     error: str | None = None
