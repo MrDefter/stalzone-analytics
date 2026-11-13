@@ -122,13 +122,16 @@
                                     <h2 id="lots-title">Активные лоты</h2>
                                 </div>
                                 <div class="lots-updated" id="lots-updated" hidden>
-                                    <span class="lots-data-time">
+                                    <span class="lots-time-badge lots-data-time">
                                         {{ icon("clock") }}
                                         <span>Данные: <time id="lots-time"></time></span>
                                     </span>
-                                    <span class="lots-age-badge">Интерфейс: <span id="lots-age"></span></span>
+                                    <span class="lots-time-badge lots-age-badge">
+                                        <span>Последнее обновление: <span id="lots-age"></span></span>
+                                    </span>
                                 </div>
-                                <span id="lots-quality" class="quality-label" tabindex="0" hidden></span>
+                                <span id="lots-quality" class="quality-label" tabindex="0"
+                                      title="Показаны доступные лоты из сохранённого снимка EXBO." hidden>Устарел</span>
                             </div>
                             <div class="table-actions">
                                 <div class="popover-anchor">

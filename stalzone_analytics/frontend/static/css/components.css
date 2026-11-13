@@ -378,7 +378,7 @@
 
 .lots-heading-main {
     display: flex;
-    flex: 1 1 min(100%, 32rem);
+    flex: 1 1 min(100%, 60rem);
     align-items: center;
     flex-wrap: wrap;
     gap: 7px 14px;
@@ -403,19 +403,26 @@
     display: flex;
     align-items: center;
     flex-wrap: wrap;
-    gap: 5px 9px;
+    gap: 8px 14px;
     min-width: 0;
-    color: var(--muted-strong);
-    font-size: 14px;
+    color: #f5dfaa;
+    font-size: clamp(15px, 1.05vw, 17px);
     line-height: 1.4;
     font-variant-numeric: tabular-nums;
 }
 
-.lots-data-time {
+.lots-time-badge {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    white-space: nowrap;
+    gap: 8px;
+    min-height: 42px;
+    max-width: 100%;
+    padding: 7px 12px;
+    border: 1px solid var(--accent);
+    border-radius: 10px;
+    background: linear-gradient(180deg, #252117, #151617);
+    box-shadow: 0 0 10px rgb(245 185 66 / 18%),
+        inset 0 0 8px rgb(245 185 66 / 12%);
 }
 
 .lots-updated time,
@@ -425,16 +432,9 @@
 }
 
 .lots-updated .icon {
-    width: 16px;
-    height: 16px;
-}
-
-.lots-age-badge {
-    padding: 2px 8px;
-    border: 1px solid var(--accent-line);
-    border-radius: 12px;
-    background: var(--accent-soft);
-    white-space: nowrap;
+    width: 23px;
+    height: 23px;
+    color: var(--accent);
 }
 
 .quality-label {

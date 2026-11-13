@@ -248,13 +248,7 @@ function updateLotsTime(dataset) {
     time.textContent = date ? lotsDataTime.format(new Date(date)) : "";
     updateLotsAge();
     const quality = byId("lots-quality");
-    const labels = [
-        dataset?.snapshot_stale && "Устарел",
-        dataset?.coverage?.lots_complete === false && "Неполный снимок",
-    ].filter(Boolean);
-    quality.textContent = labels.join(" · ");
-    quality.hidden = !date || !labels.length;
-    quality.title = labels.length ? "Показаны доступные лоты из сохранённого снимка EXBO." : "";
+    quality.hidden = !date || !dataset?.snapshot_stale;
 }
 
 function updateLotsAge() {
